@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<title>BlackJack</title>
+		<link rel="stylesheet" href="css/screen.css" />
+		<script src="js/easeljs-0.7.1.min.js"></script>
+		<script src="js/tweenjs-0.5.1.min.js"></script>
+		<script src="js/jquery1.7.2.js"></script>
+		<script src="js/game.js"></script>
+		<script>
+			var circle = new createjs.Shape();
+            var stage;
+            var endGameContainer;
+            var spritesheet;
+            var userHandSprites;
+            var userHand;
+            var dealerHand;
+            var dealerHandSprites;
+            var dealerCards;
+            var deckX = 965;
+			var deckY = 80;
+			var takingInput = true;
+
+            var Cards = {
+            	Ace: 1,  Two: 2,  Three: 3, Four: 4,  
+            	Five: 5, Six: 6,  Seven: 7, Eight: 8,
+            	Nine: 9, Ten: 10, Jack: 11, Queen: 12, King: 13
+            };
+			var Suites = {
+            	Clubs: 1,  Spades: 2, Hearts: 3, Diamonds: 4
+            };
+			function Dealer() {
+				
+			}
+
+            function getCardSprite(CardType, SuiteType){
+			
+            	var sprite = new createjs.Sprite(spritesheet);
+
+            	sprite.gotoAndStop(52);
+            	sprite.cardType = CardType;
+				sprite.suiteType = SuiteType;
+				sprite.scaleX = -1;
+
+            	return sprite;
+            }
+
+            function showCardFace(cardSprite)
+            {
+            	console.log("showing card face: " + cardSprite.cardType + " suit: " + cardSprite.suiteType);
+            	cardSprite.gotoAndStop(cardSprite.cardType + (cardSprite.suiteType-1)*13 - 1);
+            }
+
+
+
+	        function init() {
+	        	var data = {
+					images: ["assets/cards.png"],
+					frames: {width:73, height:98, count:53}
+				};
+				spritesheet = new createjs.SpriteSheet(data);
+	        	stage = new createjs.Stage("demoCanvas");
+				stage.addChild(new createjs.Bitmap("assets/background.png"));
+
+				//Hit button
+				var hitButton = new createjs.Bitmap('assets/hit_button.png');
+				hitButton.x = 570;
+				hitButton.y = 550;
+				hitButton.addEventListener("click", onHitButtonClicked);
+				stage.addChild(hitButton);
+
+				//Stand button
+				var standButton = new createjs.Bitmap('assets/stand_button.png');
+				standButton.x = 640;
+				standButton.y = 545;
+				standButton.addEventListener("click", onStandButtonClicked);
+				stage.addChild(standButton);
+				
+				createjs.Ticker.setFPS(30);
+				createjs.Ticker.addEventListener("tick", stage);
+
+				startGame();
+	        }
+
+	        var newGame = function(){
+
+	        	var deck = new Deck();
+				deck.shuffle();
+
+				dealerHand        = new Hand(deck);
+				userHand          = new Hand(deck);
+				dealerHandSprites = new Array();
+				userHandSprites   = new Array();
+				dealerCards       = dealerHand.getHand();
+				userCards         = userHand.getHand();
+
+				animationDelay = 0;
+
+				for(var i=0; i<dealerCards.length; i++) {
+					setTimeout(function(){
+						addDealerCard(false);
+					}, animationDelay);
+					animationDelay += 250;
+				}
+
+				animationDelay += 500;
+
+				for(var i=0; i<userCards.length; i++) {
+					setTimeout(function(){
+						addCardSprite(true);
+					}, animationDelay);
+					animationDelay += 250;
+				}
+	        }
+
+	        var addDealerCard = function(shouldFlip){
+	        	if(!takingInput)
+	        		return;
+
+	        	var cards = dealerHand.getHand();
+	        	var numberOfCards = dealerHandSprites.length;
+	        	var newCard = cards[numberOfCards];
+	        	var newDealerCard = getCardSprite(newCard.getNumber(), newCard.getSuitNumber());
+				newDealerCard.x = 450 + numberOfCards*50;
+				newDealerCard.y = 140 + numberOfCards*5;
+				dealerHandSprites.push(newDealerCard);
+				animateNewCard(newDealerCard, 450 + numberOfCards*50, 140+numberOfCards*5, numberOfCards>0);
+	        }
+
+	        var addCardSprite = function(shouldFlip){
+	        	if(!takingInput)
+	        		return;
+
+	        	var cards = userHand.getHand();
+	        	var numberOfCards = userHandSprites.length;
+	        	var newCard = cards[numberOfCards];
+	        	var newUserCard = getCardSprite(newCard.getNumber(), newCard.getSuitNumber());
+				userHandSprites.push(newUserCard);
+				animateNewCard(newUserCard, 535+numberOfCards*12, 415+numberOfCards*6, shouldFlip);
+				createjs.Tween.get(null).to({}, 800).call(function(){
+					checkEndGame();
+			    });
+	        }
+
+	        var checkEndGame = function(){
+	        	if(!takingInput)
+	        		return;
+
+	        	if(userHand.score() > 21)
+	        	{
+	        		endGame();
+	        	}
+	        	else if(userHand.score() == 21)
+	        	{
+	        		finishDealerHand();
+	        	}
+	        }
+
+	        var endGame = function(){
+	        	if(!takingInput)
+	        		return;
+
+	        	takingInput = false;
+	        	if(userHand.score() > 21)
+	        		userBust();
+	        	else if(dealerHand.score() > 21)
+	        		dealerBust();
+	        	else if(userHand.score() > dealerHand.score())
+	        		userWin();
+	        	else
+	        		userLost();
+	        }
+
+	        var userBust = function(){
+	        	showEndGame('You went bust!');
+	        }
+
+	        var dealerBust = function(){
+	        	showEndGame('Dealer busted!');
+	        }
+
+	        var userWin = function(){
+	        	showEndGame('You win!');
+	        }
+
+	        var userLost = function(){
+	        	showEndGame('Dealer wins');
+	        }
+
+	        var showEndGame = function(message){
+	        	
+	        	var endGameImage = new createjs.Bitmap("assets/end_game.png");
+
+	        	var playAgainButton = new createjs.Bitmap("assets/play_again.png");
+	        	playAgainButton.addEventListener("click", onPlayAgainClicked);
+	        	playAgainButton.x = (endGameImage.getBounds().width - playAgainButton.getBounds().width)/2;
+	        	playAgainButton.y = 140;
+
+				var text         = new createjs.Text(message, "bold 42px Arial", "#ffffff");
+				text.set({
+	                textAlign: 'center',
+	                x:200,
+	                y:10
+	            });
+
+	        	endGameContainer   = new createjs.Container();
+	        	endGameContainer.x = ($('#demoCanvas').width() - endGameImage.getBounds().width)/2;
+	        	endGameContainer.y = 240;
+
+	        	endGameContainer.addChild(endGameImage);
+	        	endGameContainer.addChild(text);
+	        	endGameContainer.addChild(playAgainButton);
+
+	        	stage.addChild(endGameContainer);
+	        }
+
+	        var onPlayAgainClicked = function(event){
+				resetStage();
+	        	startGame();
+	        }
+
+	        var resetStage = function(){
+	        	stage.removeChild(endGameContainer);
+
+	        	for(var i=0; i<dealerHandSprites.length; i++)
+	        	{
+	        		stage.removeChild(dealerHandSprites[i]);
+	        	}
+	        	for(var i=0; i<userHandSprites.length; i++)
+	        	{
+	        		stage.removeChild(userHandSprites[i]);
+	        	}
+	        	
+	        	stage.update();
+	        }
+
+	        var startGame = function(){
+	        	takingInput = true;
+	        	newGame();
+	        }
+
+	        var onHitButtonClicked = function(event){
+	        	if(takingInput)
+	        	{
+		        	userHand.hitMe();
+		        	addCardSprite(true);
+	        	}
+	        }
+
+	        var finishDealerHand = function(){
+
+	        	if(!takingInput)
+	        		return;
+
+	        	if(dealerHand.score() < 17 && dealerHand.length() < 5){
+	        		dealerHand.hitMe();
+	        	}
+	        	else
+	        	{
+	        		endGame();
+	        	}
+	        	if(dealerHand.length() > dealerHandSprites.length)
+	        	{
+	        		addDealerCard(false);
+	        	}
+
+				setTimeout(function(){
+					if(dealerHand.score() < 17 && dealerHand.length() < 5){
+						finishDealerHand();
+					}
+					else
+						endGame();
+				}, 1000);
+		    }
+
+		    var animateNewCard = function(cardSprite, destinationX, destinationY, shouldFlip){
+		    	stage.addChild(cardSprite);
+		    	if(shouldFlip){
+	    			cardSprite.rotation = -70;
+					cardSprite.scaleX = -1;
+				}
+
+				cardSprite.x = deckX;
+				cardSprite.y = deckY;
+
+				if(!shouldFlip)
+					destinationX += cardSprite.getBounds().width;
+
+				var destionationScaleX = cardSprite.scaleX;;
+				if(shouldFlip)
+					destionationScaleX = 1;
+
+				createjs.Tween.get(cardSprite).to({x:destinationX,y:destinationY, rotation:0, scaleX:destionationScaleX},800,createjs.Ease.quadInOut);
+
+				if(shouldFlip){
+					createjs.Tween.get(cardSprite).to({},400,createjs.Ease.quadInOut).call(function(){
+						showCardFace(cardSprite);
+					});
+				}
+		    }
+
+		    var flipCard = function(cardSprite){
+
+		    	if(cardSprite.scaleX == 1)
+		    		return;
+		    	console.log("x: " + cardSprite.x + " width: "+cardSprite.getBounds().width);
+		    	createjs.Tween.get(cardSprite).to({rotation:0, scaleX:1, x: cardSprite.x-cardSprite.getBounds().width},800,createjs.Ease.quadInOut);
+	        	createjs.Tween.get(cardSprite).to({},400,createjs.Ease.quadInOut).call(function(){
+					showCardFace(cardSprite);
+				});
+		    }
+
+	        var onStandButtonClicked = function(event){
+	        	if(takingInput)
+	        	{
+		        	var cardSprite = dealerHandSprites[0];
+		        	flipCard(cardSprite);
+		        	setTimeout(function(){
+						finishDealerHand();
+					}, 1000);
+		        }
+	        }
+	    </script>
+	</head>
+	<body onLoad="init();">
+	    <canvas id="demoCanvas" width="1200" height="800">
+	    </canvas>	
+	</body>
+</html>
