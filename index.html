@@ -63,16 +63,16 @@
 				stage.addChild(new createjs.Bitmap("assets/background.png"));
 
 				//Hit button
-				var hitButton = new createjs.Bitmap('assets/hit_button.png');
-				hitButton.x = 570;
-				hitButton.y = 550;
+				var hitButton = new createjs.Bitmap('assets/custom_hit.png');
+				hitButton.x = 730;
+				hitButton.y = 612;
 				hitButton.addEventListener("click", onHitButtonClicked);
 				stage.addChild(hitButton);
 
 				//Stand button
-				var standButton = new createjs.Bitmap('assets/stand_button.png');
-				standButton.x = 640;
-				standButton.y = 545;
+				var standButton = new createjs.Bitmap('assets/custom_stand.png');
+				standButton.x = 900;
+				standButton.y = 590;
 				standButton.addEventListener("click", onStandButtonClicked);
 				stage.addChild(standButton);
 				
