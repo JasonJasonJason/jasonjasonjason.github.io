@@ -1,7 +1,7 @@
 /**
  * @author Scott Carroll
  */
-/** @constructor */
+/** @constructor */ 
 var Card = function (suit, number){
     /** @returns {Number} The number of the card in the deck. (1-52) */
     this.getNumber = function (){
@@ -186,6 +186,7 @@ var Player = function (){
     var userId = 0;
     var cash = 100.00;
     var hand = null;
+    var betAmount = 0.0;
 
     this.setUserId = function(id){
         userId = id;
@@ -199,6 +200,23 @@ var Player = function (){
     }
     this.deductCash = function(deductAmount){
         cash = cash-deductAmount;
+    }
+
+    this.increaseBet = function(increaseBetAmount){
+        betAmount += increaseBetAmount;
+        cash -= increaseBetAmount;
+    }
+    this.getCurrentBet = function(){
+        return betAmount;
+    }
+    this.lostBet = function(){
+        console.log("User "+userId+" lost their bet amount of " + this.getCurrentBet() + ". New cash amount: " + cash);
+        betAmount = 0.0;
+    }
+    this.wonBet = function(){
+        cash += 2*betAmount;
+        console.log("User "+userId+" won their bet amount of " + this.getCurrentBet() + ". New cash amount: " + cash);
+        betAmount = 0.0;
     }
 
     this.setHand = function(newHand){

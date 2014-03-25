@@ -21,6 +21,8 @@
 			var deckY = 80;
 			var takingInput = true;
 			var user = null;
+			var chipButtons = new Array();
+			var namedSprites = {};
 
             var Cards = {
             	Ace: 1,  Two: 2,  Three: 3, Four: 4,  
@@ -53,7 +55,6 @@
             }
 
 
-
 	        function init() {
 	        	var data = {
 					images: ["assets/cards.png"],
@@ -65,6 +66,7 @@
 
 				//Hit button
 				var hitButton = new createjs.Bitmap('assets/custom_hit.png');
+				hitButton.enabled = true;
 				hitButton.x = 730;
 				hitButton.y = 612;
 				hitButton.addEventListener("click", onHitButtonClicked);
@@ -72,10 +74,14 @@
 
 				//Stand button
 				var standButton = new createjs.Bitmap('assets/custom_stand.png');
+				standButton.enabled = true;
 				standButton.x = 900;
 				standButton.y = 590;
 				standButton.addEventListener("click", onStandButtonClicked);
 				stage.addChild(standButton);
+
+				namedSprites['standButton'] = standButton;
+				namedSprites['hitButton'] = hitButton;
 
 				//Bet buttons
 				var betAmounts = new Array("red", "blue", "green", "black");
@@ -83,13 +89,19 @@
 				{
 					(function(){
 						var betAmount = betAmounts[i];
+
 						betButton = new createjs.Bitmap('assets/'+betAmount+'_chip_small.png');
 						betButton.x = 700 + i*35;
 						betButton.y = 580;
+						betButton.enabled = true;
 						betButton.addEventListener("click", function(event){
-							self.onBetButtonClicked(10);
+							if(betButton.enabled)
+							{
+								self.onBetButtonClicked(10);
+							}
 						});
 						stage.addChild(betButton);
+						chipButtons.push(betButton);
 					}());
 				}
 				
@@ -97,9 +109,6 @@
 				createjs.Ticker.addEventListener("tick", stage);
 
 				user = new Player();
-				user.deductCash(8.8);
-
-				console.log('user cash: ' + user.getCash());
 
 				startGame();
 	        }
@@ -196,22 +205,26 @@
 	        }
 
 	        var userBust = function(){
-	        	showEndGame('You went bust!');
+	        	showEndGame('You went bust!', false);
+	        	user.lostBet();
 	        }
 
 	        var dealerBust = function(){
-	        	showEndGame('Dealer busted!');
+	        	showEndGame('Dealer busted!', true);
+	        	user.wonBet();
 	        }
 
 	        var userWin = function(){
-	        	showEndGame('You win!');
+	        	showEndGame('You win!', true);
+	        	user.wonBet();
 	        }
 
 	        var userLost = function(){
-	        	showEndGame('Dealer wins');
+	        	showEndGame('Dealer wins', false);
+	        	user.lostBet();
 	        }
 
-	        var showEndGame = function(message){
+	        var showEndGame = function(message, didWin){
 	        	
 	        	var endGameImage = new createjs.Bitmap("assets/end_game.png");
 
@@ -220,11 +233,23 @@
 	        	playAgainButton.x = (endGameImage.getBounds().width - playAgainButton.getBounds().width)/2;
 	        	playAgainButton.y = 140;
 
-				var text         = new createjs.Text(message, "bold 42px Arial", "#ffffff");
+				var text = new createjs.Text(message, "bold 42px Arial", "#ffffff");
 				text.set({
 	                textAlign: 'center',
 	                x:200,
-	                y:10
+	                y:15
+	            });
+
+				if(didWin)
+		            var detailMessage = 'You won $' + user.getCurrentBet() + '!';
+		        else
+		        	var detailMessage = 'You lost $'+user.getCurrentBet() + '.';
+
+	            var detailText = new createjs.Text(detailMessage, "30px Arial", "#cccccc");
+	            detailText.set({
+	            	textAlign: 'center',
+	            	x: 200,
+	            	y: 80
 	            });
 
 	        	endGameContainer   = new createjs.Container();
@@ -233,6 +258,7 @@
 
 	        	endGameContainer.addChild(endGameImage);
 	        	endGameContainer.addChild(text);
+	        	endGameContainer.addChild(detailText);
 	        	endGameContainer.addChild(playAgainButton);
 
 	        	stage.addChild(endGameContainer);
@@ -272,7 +298,7 @@
 	        }
 
 	        var onBetButtonClicked = function(betAmount){
-	        	user.deductCash(betAmount);
+	        	user.increaseBet(betAmount);
 	        	console.log('current cash: '+user.getCash());
 	        	console.log('bet amount: '+betAmount);
 	        }
@@ -341,6 +367,11 @@
 		    }
 
 	        var onStandButtonClicked = function(event){
+	        	if(!event.target.enabled)
+	        		return;
+
+	        	disableButton(namedSprites['hitButton']);
+
 	        	if(takingInput)
 	        	{
 		        	var cardSprite = dealerHandSprites[0];
@@ -349,6 +380,29 @@
 						finishDealerHand();
 					}, 1000);
 		        }
+		        disableBetting();
+	        }
+
+
+	        var disableBetting = function(){
+	        	for(var i=0; i<chipButtons.length; i++)
+	        	{
+	        		disableButton(chipButtons[i]);
+	        	}
+	        }
+	        var enableBetting = function(){
+	        	for(var i=0; i<chipButtons.length; i++)
+	        	{
+	        		enableButton(chipButtons[i]);
+	        	}
+	        }
+	        var enableButton = function(buttonSprite){
+	        	createjs.Tween.get(buttonSprite).to({alpha:1},350, createjs.Ease.quadOut);
+        		buttonSprite.enabled = true;
+	        }
+	        var disableButton = function(buttonSprite){
+	        	createjs.Tween.get(buttonSprite).to({alpha:0.6},350, createjs.Ease.quadOut);
+        		buttonSprite.enabled = false;
 	        }
 	    </script>
 	</head>
