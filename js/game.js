@@ -181,6 +181,42 @@ var Hand = function (deck){
     }
 };
 
+var Player = function (){
+
+    var userId = 0;
+    var cash = 100.00;
+    var hand = null;
+
+    this.setUserId = function(id){
+        userId = id;
+    }
+    this.getUserId = function(){
+        return userId;
+    }
+
+    this.getCash = function(){
+        return cash;
+    }
+    this.deductCash = function(deductAmount){
+        cash = cash-deductAmount;
+    }
+
+    this.setHand = function(newHand){
+        hand = newHand;
+    }
+    this.getHand = function(){
+        return hand;
+    }
+};
+
+
+
+
+
+
+
+
+
 /** Play BLACKJACK! */
 var BlackJack = (function ($){
     /* Set up our Game's Deck */

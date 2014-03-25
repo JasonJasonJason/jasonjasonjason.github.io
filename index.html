@@ -20,6 +20,7 @@
             var deckX = 965;
 			var deckY = 80;
 			var takingInput = true;
+			var user = null;
 
             var Cards = {
             	Ace: 1,  Two: 2,  Three: 3, Four: 4,  
@@ -75,9 +76,30 @@
 				standButton.y = 590;
 				standButton.addEventListener("click", onStandButtonClicked);
 				stage.addChild(standButton);
+
+				//Bet buttons
+				var betAmounts = new Array(1, 5, 10);
+				for(var i=0; i<betAmounts.length; i++)
+				{
+					(function(){
+						var betAmount = betAmounts[i];
+						betButton = new createjs.Bitmap('assets/bet_'+betAmount+'.png');
+						betButton.x = 700 + i*35;
+						betButton.y = 580;
+						betButton.addEventListener("click", function(event){
+							self.onBetButtonClicked(betAmount);
+						});
+						stage.addChild(betButton);
+					}());
+				}
 				
 				createjs.Ticker.setFPS(30);
 				createjs.Ticker.addEventListener("tick", stage);
+
+				user = new Player();
+				user.deductCash(8.8);
+
+				console.log('user cash: ' + user.getCash());
 
 				startGame();
 	        }
@@ -93,6 +115,8 @@
 				userHandSprites   = new Array();
 				dealerCards       = dealerHand.getHand();
 				userCards         = userHand.getHand();
+
+				user.setHand(userHand);
 
 				animationDelay = 0;
 
@@ -245,6 +269,12 @@
 		        	userHand.hitMe();
 		        	addCardSprite(true);
 	        	}
+	        }
+
+	        var onBetButtonClicked = function(betAmount){
+	        	user.deductCash(betAmount);
+	        	console.log('current cash: '+user.getCash());
+	        	console.log('bet amount: '+betAmount);
 	        }
 
 	        var finishDealerHand = function(){
