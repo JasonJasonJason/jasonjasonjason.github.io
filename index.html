@@ -78,16 +78,16 @@
 				stage.addChild(standButton);
 
 				//Bet buttons
-				var betAmounts = new Array(1, 5, 10);
+				var betAmounts = new Array("red", "blue", "green", "black");
 				for(var i=0; i<betAmounts.length; i++)
 				{
 					(function(){
 						var betAmount = betAmounts[i];
-						betButton = new createjs.Bitmap('assets/bet_'+betAmount+'.png');
+						betButton = new createjs.Bitmap('assets/'+betAmount+'_chip_small.png');
 						betButton.x = 700 + i*35;
 						betButton.y = 580;
 						betButton.addEventListener("click", function(event){
-							self.onBetButtonClicked(betAmount);
+							self.onBetButtonClicked(10);
 						});
 						stage.addChild(betButton);
 					}());
