@@ -8,6 +8,10 @@
 		<script src="js/jquery1.7.2.js"></script>
 		<script src="js/game.js"></script>
 		<script>
+
+		/*
+			Notes: Pass the transactions/banking team hand:{{"clubs", "three"}, {"spades", "ace"}}, winAmount:51.5, 
+		*/
 			var circle = new createjs.Shape();
             var stage;
             var endGameContainer;
@@ -23,6 +27,8 @@
 			var user = null;
 			var chipButtons = new Array();
 			var namedSprites = {};
+			var infoBlock;
+			var currentMoneyText;
 
             var Cards = {
             	Ace: 1,  Two: 2,  Three: 3, Four: 4,  
@@ -104,11 +110,27 @@
 						chipButtons.push(betButton);
 					}());
 				}
+
+
+				infoBlock   = new createjs.Container();
+	        	infoBlock.x = 0;
+	        	infoBlock.y = 0;
+	        	var infoBlockBackground = new createjs.Bitmap('assets/info_block_bg.png');
+	        	infoBlock.addChild(infoBlockBackground);
+	        	currentMoneyText = new createjs.Text('', "18px Arial", "#444444");
+				currentMoneyText.set({
+	                x:15,
+	                y:10
+	            });
+
+	            infoBlock.addChild(currentMoneyText);
+	        	stage.addChild(infoBlock);
 				
 				createjs.Ticker.setFPS(30);
 				createjs.Ticker.addEventListener("tick", stage);
 
 				user = new Player();
+				user.onCashChanged(onUserCashChanged);
 
 				startGame();
 	        }
@@ -403,6 +425,12 @@
 	        var disableButton = function(buttonSprite){
 	        	createjs.Tween.get(buttonSprite).to({alpha:0.6},350, createjs.Ease.quadOut);
         		buttonSprite.enabled = false;
+	        }
+
+	        var onUserCashChanged = function(event){
+	        	currentMoneyText.set({
+	        		text: ('Bank: $'+user.getCash())
+	        	});
 	        }
 	    </script>
 	</head>

@@ -187,6 +187,7 @@ var Player = function (){
     var cash = 100.00;
     var hand = null;
     var betAmount = 0.0;
+    var onCashChanged;
 
     this.setUserId = function(id){
         userId = id;
@@ -200,11 +201,13 @@ var Player = function (){
     }
     this.deductCash = function(deductAmount){
         cash = cash-deductAmount;
+        onCashChanged();
     }
 
     this.increaseBet = function(increaseBetAmount){
         betAmount += increaseBetAmount;
         cash -= increaseBetAmount;
+        onCashChanged();
     }
     this.getCurrentBet = function(){
         return betAmount;
@@ -217,6 +220,7 @@ var Player = function (){
         cash += 2*betAmount;
         console.log("User "+userId+" won their bet amount of " + this.getCurrentBet() + ". New cash amount: " + cash);
         betAmount = 0.0;
+        onCashChanged();
     }
 
     this.setHand = function(newHand){
@@ -224,6 +228,11 @@ var Player = function (){
     }
     this.getHand = function(){
         return hand;
+    }
+
+    this.onCashChanged = function(newOnCashChanged){
+        onCashChanged = newOnCashChanged;
+        onCashChanged();
     }
 };
 
