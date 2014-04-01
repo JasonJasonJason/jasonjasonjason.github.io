@@ -119,23 +119,23 @@
 				}
 
 				infoBlock   = new createjs.Container();
-	        	infoBlock.x = 0;
-	        	infoBlock.y = 0;
-	        	infoBlock.addChild(new createjs.Bitmap('assets/info_block_bg.png'));
-	        	currentMoneyText = new createjs.Text('', "18px Arial", "#444444");
+	        	infoBlock.x = 10;
+	        	infoBlock.y = 10;
+	        	infoBlock.addChild(new createjs.Bitmap('assets/custom_info_block_bg.png'));
+	        	currentMoneyText = new createjs.Text('', "18px Arial", "#500000");
 				currentMoneyText.set({
-	                x:15,
-	                y:10
+	                x:25,
+	                y:20
 	            });
-	            currentBetText = new createjs.Text('', "18px Arial", "#444444");
+	            currentBetText = new createjs.Text('', "18px Arial", "#500000");
 	            currentBetText.set({
-	            	x:15,
-	            	y:35
+	            	x:25,
+	            	y:45
 	            });
-	            timerText = new createjs.Text('', '18px Arial', '#444444');
+	            timerText = new createjs.Text('', '18px Arial', '#500000');
 	            timerText.set({
-	            	x:15,
-	            	y:60
+	            	x:25,
+	            	y:70
 	            });
 	            infoBlock.addChild(currentBetText);
 	            infoBlock.addChild(currentMoneyText);
@@ -508,7 +508,7 @@
 			<img src="assets/custom_hit.png" />
 			<img src="assets/custom_hit.png" />
 			<img src="assets/custom_stand.png" />
-			<img src="assets/info_block_bg.png" />
+			<img src="assets/custom_info_block_bg.png" />
 		</div>
 	    <canvas id="demoCanvas" width="1200" height="800">
 	    </canvas>
