@@ -29,6 +29,11 @@
 			var namedSprites = {};
 			var infoBlock;
 			var currentMoneyText;
+			var currentBetText;
+			var timerText;
+			var serverURL = 'http://localhost:8080/';
+			var timerInterval = 300; //milliseconds per turn
+			var fpsCount = 0;
 
             var Cards = {
             	Ace: 1,  Two: 2,  Three: 3, Four: 4,  
@@ -90,20 +95,22 @@
 				namedSprites['hitButton'] = hitButton;
 
 				//Bet buttons
-				var betAmounts = new Array("red", "blue", "green", "black");
-				for(var i=0; i<betAmounts.length; i++)
+				var chipColors = new Array("red", "blue", "green", "black");
+				var betAmounts = new Array(100, 200, 500, 1000);
+				for(var i=0; i<chipColors.length; i++)
 				{
 					(function(){
+						var chipColor = chipColors[i];
 						var betAmount = betAmounts[i];
 
-						betButton = new createjs.Bitmap('assets/'+betAmount+'_chip_small.png');
+						betButton = new createjs.Bitmap('assets/'+chipColor+'_chip_small.png');
 						betButton.x = 700 + i*35;
 						betButton.y = 580;
 						betButton.enabled = true;
 						betButton.addEventListener("click", function(event){
 							if(betButton.enabled)
 							{
-								self.onBetButtonClicked(10);
+								self.onBetButtonClicked(betAmount);
 							}
 						});
 						stage.addChild(betButton);
@@ -111,19 +118,28 @@
 					}());
 				}
 
-
 				infoBlock   = new createjs.Container();
 	        	infoBlock.x = 0;
 	        	infoBlock.y = 0;
-	        	var infoBlockBackground = new createjs.Bitmap('assets/info_block_bg.png');
-	        	infoBlock.addChild(infoBlockBackground);
+	        	infoBlock.addChild(new createjs.Bitmap('assets/info_block_bg.png'));
 	        	currentMoneyText = new createjs.Text('', "18px Arial", "#444444");
 				currentMoneyText.set({
 	                x:15,
 	                y:10
 	            });
-
+	            currentBetText = new createjs.Text('', "18px Arial", "#444444");
+	            currentBetText.set({
+	            	x:15,
+	            	y:35
+	            });
+	            timerText = new createjs.Text('', '18px Arial', '#444444');
+	            timerText.set({
+	            	x:15,
+	            	y:60
+	            });
+	            infoBlock.addChild(currentBetText);
 	            infoBlock.addChild(currentMoneyText);
+	            infoBlock.addChild(timerText);
 	        	stage.addChild(infoBlock);
 				
 				createjs.Ticker.setFPS(30);
@@ -131,11 +147,34 @@
 
 				user = new Player();
 				user.onCashChanged(onUserCashChanged);
+				user.onBetChanged(onUserBetChanged);
+				updateTimerText();
 
 				startGame();
 	        }
 
+	        var onTick = function(event){
+	        	fpsCount += 1;
+
+	        	if(fpsCount%30 == 0)
+	        		updateTimerText();
+
+	        	if(fpsCount >= timerInterval){
+	        		fpsCount = fpsCount % timerInterval;
+	        		nextTurn();
+	        	}
+	        	
+	        }
+
+	        var nextTurn = function(){
+	        	endUserTurn();
+	        }
+
 	        var newGame = function(){
+
+	  			//$.get( serverURL + 'join', function( data ) {
+				//   alert( "Joined Game: " + data.game_id +'\nNumber of players: '+data.number_of_players);
+				//});
 
 	        	var deck = new Deck();
 				deck.shuffle();
@@ -166,6 +205,10 @@
 					}, animationDelay);
 					animationDelay += 250;
 				}
+
+				createjs.Ticker.addEventListener("tick", onTick);
+				fpsCount = 0;
+				updateTimerText();
 	        }
 
 	        var addDealerCard = function(shouldFlip){
@@ -302,6 +345,10 @@
 	        	{
 	        		stage.removeChild(userHandSprites[i]);
 	        	}
+
+	        	enableBetting();
+	        	enableButton(namedSprites['hitButton']);
+	        	enableButton(namedSprites['standButton']);
 	        	
 	        	stage.update();
 	        }
@@ -316,13 +363,13 @@
 	        	{
 		        	userHand.hitMe();
 		        	addCardSprite(true);
+		        	fpsCount = 0;
+		        	updateTimerText();
 	        	}
 	        }
 
 	        var onBetButtonClicked = function(betAmount){
 	        	user.increaseBet(betAmount);
-	        	console.log('current cash: '+user.getCash());
-	        	console.log('bet amount: '+betAmount);
 	        }
 
 	        var finishDealerHand = function(){
@@ -392,8 +439,14 @@
 	        	if(!event.target.enabled)
 	        		return;
 
-	        	disableButton(namedSprites['hitButton']);
+	        	endUserTurn();
+	        }
 
+	        var endUserTurn = function(event){
+	        	disableButton(namedSprites['hitButton']);
+	        	disableButton(namedSprites['standButton']);
+	        	disableBetting();
+	        	disableTimer();
 	        	if(takingInput)
 	        	{
 		        	var cardSprite = dealerHandSprites[0];
@@ -402,7 +455,10 @@
 						finishDealerHand();
 					}, 1000);
 		        }
-		        disableBetting();
+	        }
+
+	        var disableTimer = function(){
+	        	createjs.Ticker.removeEventListener("tick", onTick);
 	        }
 
 
@@ -432,6 +488,18 @@
 	        		text: ('Bank: $'+user.getCash())
 	        	});
 	        }
+	        var onUserBetChanged = function(event){
+	        	currentBetText.set({
+	        		text: ('Bet: $'+user.getCurrentBet())
+	        	});
+	        }
+
+	        var updateTimerText = function(){
+	        	timerText.set({
+	        		text: Math.round((timerInterval-fpsCount)/30) + ' seconds'
+	        	});
+	        }
+
 	    </script>
 	</head>
 	<body onLoad="init();">
@@ -440,6 +508,7 @@
 			<img src="assets/custom_hit.png" />
 			<img src="assets/custom_hit.png" />
 			<img src="assets/custom_stand.png" />
+			<img src="assets/info_block_bg.png" />
 		</div>
 	    <canvas id="demoCanvas" width="1200" height="800">
 	    </canvas>

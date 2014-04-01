@@ -184,10 +184,11 @@ var Hand = function (deck){
 var Player = function (){
 
     var userId = 0;
-    var cash = 100.00;
+    var cash = 2000.00;
     var hand = null;
     var betAmount = 0.0;
     var onCashChanged;
+    var onBetChanged;
 
     this.setUserId = function(id){
         userId = id;
@@ -208,6 +209,7 @@ var Player = function (){
         betAmount += increaseBetAmount;
         cash -= increaseBetAmount;
         onCashChanged();
+        onBetChanged();
     }
     this.getCurrentBet = function(){
         return betAmount;
@@ -215,12 +217,14 @@ var Player = function (){
     this.lostBet = function(){
         console.log("User "+userId+" lost their bet amount of " + this.getCurrentBet() + ". New cash amount: " + cash);
         betAmount = 0.0;
+        onBetChanged();
     }
     this.wonBet = function(){
         cash += 2*betAmount;
         console.log("User "+userId+" won their bet amount of " + this.getCurrentBet() + ". New cash amount: " + cash);
         betAmount = 0.0;
         onCashChanged();
+        onBetChanged();
     }
 
     this.setHand = function(newHand){
@@ -233,6 +237,11 @@ var Player = function (){
     this.onCashChanged = function(newOnCashChanged){
         onCashChanged = newOnCashChanged;
         onCashChanged();
+    }
+
+    this.onBetChanged = function(newOnBetChanged){
+        onBetChanged = newOnBetChanged;
+        onBetChanged();
     }
 };
 
