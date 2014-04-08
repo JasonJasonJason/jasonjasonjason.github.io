@@ -194,17 +194,17 @@
         currentMoneyText = new createjs.Text('', "18px Arial", "#444444");
         currentMoneyText.set({
           x:15,
-          y:10
+          y:55
         });
         currentBetText = new createjs.Text('', "18px Arial", "#444444");
         currentBetText.set({
           x:15,
-          y:35
+          y:80
         });
         timerText = new createjs.Text('', '18px Arial', '#444444');
         timerText.set({
           x:15,
-          y:60
+          y:105
         });
         infoBlock.addChild(currentBetText);
         infoBlock.addChild(currentMoneyText);
@@ -216,16 +216,16 @@
         menuBlock.x = ($('#demoCanvas').width() - menuBackground.getBounds().width)/2;
         menuBlock.y = 240;
         menuBlock.addChild(menuBackground);
-        mainMenuButton = new createjs.Bitmap('assets/play_again.png');
+        mainMenuButton = new createjs.Bitmap('assets/menu.png');
         mainMenuButton.enabled = true;
         mainMenuButton.x = (menuBackground.getBounds().width - mainMenuButton.getBounds().width)/2;
         mainMenuButton.y = 100;
         mainMenuButton.addEventListener("click", onMainMenuButtonClicked);
         menuBlock.addChild(mainMenuButton);
 
-        var menuButton = new createjs.Bitmap('assets/hit_button.png');
-        menuButton.x = 30;
-        menuButton.y = 550;
+        var menuButton = new createjs.Bitmap('assets/menu.png');
+        menuButton.x = 26;
+        menuButton.y = 25;
         menuButton.addEventListener('click', function(event){
           stage.addChild(menuBlock);
         });
