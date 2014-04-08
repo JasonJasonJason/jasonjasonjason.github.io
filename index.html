@@ -28,6 +28,8 @@
 			var chipButtons = new Array();
 			var namedSprites = {};
 			var infoBlock;
+			var menuBlock;
+			var mainMenuButton;
 			var currentMoneyText;
 			var currentBetText;
 			var timerText;
@@ -141,12 +143,33 @@
 	            infoBlock.addChild(currentMoneyText);
 	            infoBlock.addChild(timerText);
 	        	stage.addChild(infoBlock);
+
+				var menuBackground = new createjs.Bitmap("assets/end_game.png");
+	        	menuBlock = new createjs.Container();
+	        	menuBlock.x = ($('#demoCanvas').width() - menuBackground.getBounds().width)/2;
+	        	menuBlock.y = 240;
+	        	menuBlock.addChild(menuBackground);
+	        	mainMenuButton = new createjs.Bitmap('assets/play_again.png');
+				mainMenuButton.enabled = true;
+				mainMenuButton.x = (menuBackground.getBounds().width - mainMenuButton.getBounds().width)/2;
+				mainMenuButton.y = 100;
+				mainMenuButton.addEventListener("click", onMainMenuButtonClicked);
+				menuBlock.addChild(mainMenuButton);
+
+				var menuButton = new createjs.Bitmap('assets/custom_hit.png');
+				menuButton.x = 30;
+				menuButton.y = 550;
+				menuButton.addEventListener('click', function(event){
+					stage.addChild(menuBlock);
+				});
+				stage.addChild(menuButton);
+
 				
 				createjs.Ticker.setFPS(30);
 				createjs.Ticker.addEventListener("tick", stage);
 
 				user = new Player();
-				user.onCashChanged(onUserCashChanged);
+				user.setOnCashChangedCallback(onUserCashChanged);
 				user.onBetChanged(onUserBetChanged);
 				updateTimerText();
 
@@ -500,6 +523,10 @@
 	        	});
 	        }
 
+	        var onMainMenuButtonClicked = function(event){
+	        	window.location = "http://casino.curtiswendel.me/gamefloor.html";
+	        }
+
 	    </script>
 	</head>
 	<body onLoad="init();">
@@ -509,6 +536,8 @@
 			<img src="assets/custom_hit.png" />
 			<img src="assets/custom_stand.png" />
 			<img src="assets/info_block_bg.png" />
+			<img src="assets/end_game.png" />
+			<img src="assets/play_again.png" />
 		</div>
 	    <canvas id="demoCanvas" width="1200" height="800">
 	    </canvas>
