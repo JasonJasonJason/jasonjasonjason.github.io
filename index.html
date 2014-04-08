@@ -121,23 +121,23 @@
 				}
 
 				infoBlock   = new createjs.Container();
-	        	infoBlock.x = 0;
-	        	infoBlock.y = 0;
-	        	infoBlock.addChild(new createjs.Bitmap('assets/info_block_bg.png'));
-	        	currentMoneyText = new createjs.Text('', "18px Arial", "#444444");
+	        	infoBlock.x = 10;
+	        	infoBlock.y = 10;
+	        	infoBlock.addChild(new createjs.Bitmap('assets/custom_info_block.png'));
+	        	currentMoneyText = new createjs.Text('', "18px Arial", "#500000");
 				currentMoneyText.set({
-	                x:15,
-	                y:10
+	                x:25,
+	                y:20
 	            });
-	            currentBetText = new createjs.Text('', "18px Arial", "#444444");
+	            currentBetText = new createjs.Text('', "18px Arial", "#500000");
 	            currentBetText.set({
-	            	x:15,
-	            	y:35
+	            	x:25,
+	            	y:45
 	            });
-	            timerText = new createjs.Text('', '18px Arial', '#444444');
+	            timerText = new createjs.Text('', '18px Arial', '#500000');
 	            timerText.set({
-	            	x:15,
-	            	y:60
+	            	x:25,
+	            	y:70
 	            });
 	            infoBlock.addChild(currentBetText);
 	            infoBlock.addChild(currentMoneyText);
@@ -314,14 +314,14 @@
 
 	        var showEndGame = function(message, didWin){
 	        	
-	        	var endGameImage = new createjs.Bitmap("assets/end_game.png");
+	        	var endGameImage = new createjs.Bitmap("assets/custom_end_game.png");
 
-	        	var playAgainButton = new createjs.Bitmap("assets/play_again.png");
+	        	var playAgainButton = new createjs.Bitmap("assets/custom_play_again.png");
 	        	playAgainButton.addEventListener("click", onPlayAgainClicked);
 	        	playAgainButton.x = (endGameImage.getBounds().width - playAgainButton.getBounds().width)/2;
 	        	playAgainButton.y = 140;
 
-				var text = new createjs.Text(message, "bold 42px Arial", "#ffffff");
+				var text = new createjs.Text(message, "bold 42px Arial", "#500000");
 				text.set({
 	                textAlign: 'center',
 	                x:200,
@@ -333,7 +333,7 @@
 		        else
 		        	var detailMessage = 'You lost $'+user.getCurrentBet() + '.';
 
-	            var detailText = new createjs.Text(detailMessage, "30px Arial", "#cccccc");
+	            var detailText = new createjs.Text(detailMessage, "30px Arial", "#500000");
 	            detailText.set({
 	            	textAlign: 'center',
 	            	x: 200,
@@ -535,9 +535,7 @@
 			<img src="assets/custom_hit.png" />
 			<img src="assets/custom_hit.png" />
 			<img src="assets/custom_stand.png" />
-			<img src="assets/info_block_bg.png" />
-			<img src="assets/end_game.png" />
-			<img src="assets/play_again.png" />
+			<img src="assets/custom_info_block.png" />
 		</div>
 	    <canvas id="demoCanvas" width="1200" height="800">
 	    </canvas>
