@@ -173,8 +173,8 @@
             var betAmount = betAmounts[i];
 
             betButton = new createjs.Bitmap('assets/'+chipColor+'_chip_small.png');
-            betButton.x = 700 + i*35;
-            betButton.y = 580;
+            betButton.x = 520 + i*35;
+            betButton.y = 370;
             betButton.enabled = true;
             betButton.addEventListener("click", function(event){
               if(betButton.enabled)
@@ -325,7 +325,7 @@
         var newCard = cards[numberOfCards];
         var newUserCard = getCardSprite(newCard.getNumber(), newCard.getSuitNumber());
         userHandSprites.push(newUserCard);
-        animateNewCard(newUserCard, 535+numberOfCards*12, 415+numberOfCards*6, shouldFlip);
+        animateNewCard(newUserCard, 535+numberOfCards*12, 425+numberOfCards*6, shouldFlip);
         createjs.Tween.get(null).to({}, 800).call(function(){
           checkEndGame();
         });
