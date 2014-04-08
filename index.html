@@ -196,8 +196,8 @@
             var betAmount = betAmounts[i];
 
             betButton = new createjs.Bitmap('assets/'+chipColor+'_chip_small.png');
-            betButton.x = 700 + i*35;
-            betButton.y = 580;
+            betButton.x = 520 + i*35;
+            betButton.y = 370;
             betButton.enabled = true;
             betButton.addEventListener("click", function(event){
               if(betButton.enabled)
@@ -217,17 +217,17 @@
         currentMoneyText = new createjs.Text('', "18px Arial", "#444444");
         currentMoneyText.set({
           x:15,
-          y:10
+          y:65
         });
         currentBetText = new createjs.Text('', "18px Arial", "#444444");
         currentBetText.set({
           x:15,
-          y:35
+          y:90
         });
         timerText = new createjs.Text('', '18px Arial', '#444444');
         timerText.set({
           x:15,
-          y:60
+          y:115
         });
         infoBlock.addChild(currentBetText);
         infoBlock.addChild(currentMoneyText);
@@ -239,16 +239,16 @@
         menuBlock.x = ($('#demoCanvas').width() - 100)/2;
         menuBlock.y = 240;
         menuBlock.addChild(menuBackground);
-        mainMenuButton = new createjs.Bitmap('assets/play_again.png');
+        mainMenuButton = new createjs.Bitmap('assets/casino_back.png');
         mainMenuButton.enabled = true;
         mainMenuButton.x = (200 - 100)/2;
         mainMenuButton.y = 100;
         mainMenuButton.addEventListener("click", onMainMenuButtonClicked);
         menuBlock.addChild(mainMenuButton);
 
-        var menuButton = new createjs.Bitmap('assets/hit_button.png');
-        menuButton.x = 30;
-        menuButton.y = 550;
+        var menuButton = new createjs.Bitmap('assets/menu.png');
+        menuButton.x = 26;
+        menuButton.y = 25;
         menuButton.addEventListener('click', function(event){
           stage.addChild(menuBlock);
         });
@@ -345,7 +345,7 @@
         var newCard = cards[numberOfCards];
         var newUserCard = getCardSprite(newCard.getNumber(), newCard.getSuitNumber());
         userHandSprites.push(newUserCard);
-        animateNewCard(newUserCard, 535+numberOfCards*12, 415+numberOfCards*6, shouldFlip);
+        animateNewCard(newUserCard, 535+numberOfCards*12, 425+numberOfCards*6, shouldFlip);
         createjs.Tween.get(null).to({}, 800).call(function(){
           checkEndGame();
         });
