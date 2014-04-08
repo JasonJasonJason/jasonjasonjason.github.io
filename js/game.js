@@ -120,11 +120,17 @@ var Deck = function (){
     };
 };
 /** @constructor */
-var Hand = function (deck){
+var Hand = function (suites, numbers){
+
     var cards = [];
 
-    /* Deal two cards to begin. */
-    cards.push( deck.deal(), deck.deal());
+    console.log('Parsing suites : ' + suites);
+    console.log('Parsing numbers: ' + numbers);
+    for(var i=0; i<suites.length; i++){
+        cards.push(new Card(suites[i], numbers[i]));
+    }
+    
+
     /** @returns {Array} The array of Cards representing the Hand. */
     this.getHand = function (){
         return cards;

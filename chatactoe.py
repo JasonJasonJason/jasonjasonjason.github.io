@@ -27,18 +27,24 @@ from google.appengine.ext.webapp.util import run_wsgi_app
 
 class Game(ndb.Model):
   """All the data we store for a game"""
-  dealer   = ndb.PickleProperty()
-  user     = ndb.PickleProperty()
-  game_key = ndb.StringProperty()
-  user_id  = ndb.StringProperty()
+  dealer          = ndb.PickleProperty()
+  dealer_suites   = ndb.PickleProperty()
+  user            = ndb.PickleProperty()
+  user_suites     = ndb.PickleProperty()
+  game_key        = ndb.StringProperty()
+  user_id         = ndb.StringProperty()
 
 def createNewGame(game_key):
-  return Game(
-                game_key = game_key,
-                dealer   = Dealer().getHand().cards,
-                user     = User().getHand().cards,
-                user_id  = 'JasonHarris'
-              )
+    dealer = Dealer()
+    user = User()
+    return Game(
+                game_key      = game_key,
+                dealer        = dealer.getHand().cards,
+                dealer_suites = dealer.getHand().suites,
+                user          = user.getHand().cards,
+                user_suites   = user.getHand().suites,
+                user_id       = 'JasonHarris'
+                )
 
 
 class GameUpdater():
@@ -50,7 +56,9 @@ class GameUpdater():
   def get_game_message(self):
     gameUpdate = {
       'dealer': self.game.dealer,
-      'user'  : self.game.user
+      'user'  : self.game.user,
+      'dealer_suites': self.game.dealer_suites,
+      'user_suites'  : self.game.user_suites
     }
     logging.info('JSON game update: ' + str(simplejson.dumps(gameUpdate)))
     return simplejson.dumps(gameUpdate)
@@ -128,7 +136,7 @@ class MainPage(webapp.RequestHandler):
   def get(self):
     """Renders the main page. When this page is shown, we create a new
     channel to push asynchronous updates to the client."""
-
+    logging.info('starting stuff!')
     #delete all previous games
     games = Game.query().fetch()
     for game in games:
@@ -162,16 +170,20 @@ class MainPage(webapp.RequestHandler):
 
 
 class Hand(object):
-  all_cards = [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10, 11]
+  all_cards  = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+  all_suites = [1, 2, 3, 4]
 
   def __init__(self):
-    self.cards = []
-    self.cards.append(random.choice(self.all_cards));
-    self.cards.append(random.choice(self.all_cards));
+    self.cards  = []
+    self.suites = []
 
-  def hitMe():
-    if len(cards) < 5:
-      cards.append(random.choice(cards));
+    self.hitMe()
+    self.hitMe()
+
+  def hitMe(self):
+    if len(self.cards) < 5:
+      self.cards.append(random.choice(self.all_cards));
+      self.suites.append(random.choice(self.all_suites));
 
   def total():
       aces = cards.count(11)

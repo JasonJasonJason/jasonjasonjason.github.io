@@ -1,9 +1,27 @@
 <html>
   <head>
-      <title>BlackJack</title>
-      <link href='css/screen.css' rel='stylesheet' type='text/css'>
-      <script src='/_ah/channel/jsapi'></script>
-      <script src="js/easeljs-0.7.1.min.js"></script>
+	<title>BlackJack</title>
+	<link href='css/screen.css' rel='stylesheet' type='text/css'>
+	<script type="text/javascript" src="/_ah/channel/jsapi"></script>
+  </head>
+
+  <body>
+    <div style="display:none;">
+      <img src="assets/end_game.png" />
+      <img src="assets/background.png" />
+      <img src="assets/hit_button.png" />
+      <img src="assets/stand_button.png" />
+      <img src="assets/info_block_bg.png" />
+      <img src="assets/play_again.png" />
+      <img src="assets/cards.png" />
+    </div>
+      <canvas id="demoCanvas" width="1200" height="800">
+      </canvas>
+    <div id='this-game' float='top'>
+      Quick link to this game: <span id='this-game-link'><a href='{{ game_link }}'>{{ game_link }}</a></span>
+    </div>
+
+    <script src="js/easeljs-0.7.1.min.js"></script>
       <script src="js/tweenjs-0.5.1.min.js"></script>
       <script src="js/jquery1.7.2.js"></script>
       <script src="js/game.js"></script>
@@ -15,6 +33,7 @@
 
         updateGame = function() {
           //Update displays and logic based on received values from server
+          startGame();
         };
         
         isMyMove = function() {
@@ -45,8 +64,10 @@
         onMessage = function(m) {
           newState = JSON.parse(m.data);
           console.log(newState);
-          state.dealerHand = newState.dealer;
-          state.userHand   = newState.user;
+          state.dealer = newState.dealer;
+          state.user   = newState.user;
+          state.dealer_suites = newState.dealer_suites;
+          state.user_suites   = newState.user_suites;
           updateGame();
         }
         
@@ -69,7 +90,9 @@
           openChannel();
         }      
 
-        setTimeout(initialize, 100);
+        setTimeout(initialize, 550);
+        setTimeout(init, 250);
+        
 
     /*
       Notes: Pass the transactions/banking team hand:{"clubs", "three"}, {"spades", "ace"}, winAmount:51.5, 
@@ -213,12 +236,12 @@
 
         var menuBackground = new createjs.Bitmap('assets/end_game.png');
         menuBlock = new createjs.Container();
-        menuBlock.x = ($('#demoCanvas').width() - menuBackground.getBounds().width)/2;
+        menuBlock.x = ($('#demoCanvas').width() - 100)/2;
         menuBlock.y = 240;
         menuBlock.addChild(menuBackground);
         mainMenuButton = new createjs.Bitmap('assets/play_again.png');
         mainMenuButton.enabled = true;
-        mainMenuButton.x = (menuBackground.getBounds().width - mainMenuButton.getBounds().width)/2;
+        mainMenuButton.x = (200 - 100)/2;
         mainMenuButton.y = 100;
         mainMenuButton.addEventListener("click", onMainMenuButtonClicked);
         menuBlock.addChild(mainMenuButton);
@@ -230,7 +253,6 @@
           stage.addChild(menuBlock);
         });
         stage.addChild(menuButton);
-
         
         createjs.Ticker.setFPS(30);
         createjs.Ticker.addEventListener("tick", stage);
@@ -240,7 +262,7 @@
         user.onBetChanged(onUserBetChanged);
         updateTimerText();
 
-        startGame();
+        // startGame();
       }
 
       var onTick = function(event){
@@ -265,18 +287,16 @@
         //$.get( serverURL + 'join', function( data ) {
         //   alert( "Joined Game: " + data.game_id +'\nNumber of players: '+data.number_of_players);
         //});
-
-        var deck = new Deck();
-        deck.shuffle();
-
-        // dealerHand = state.dealerHand;
-        dealerHand        = new Hand(deck);
-        userHand          = new Hand(deck);
+		
+        dealerHand        = new Hand(state.dealer_suites, state.dealer);
+        userHand          = new Hand(state.user_suites,   state.user);
         dealerHandSprites = new Array();
         userHandSprites   = new Array();
         dealerCards       = dealerHand.getHand();
         userCards         = userHand.getHand();
 
+        if(!user)
+        	user = new Player();
         user.setHand(userHand);
 
         animationDelay = 0;
@@ -596,22 +616,5 @@
       }
 
     </script>
-  </head>
-
-
-  <body onload="init()">
-    <div style="display:none;">
-      <img src="assets/end_game.png" />
-      <img src="assets/background.png" />
-      <img src="assets/hit_button.png" />
-      <img src="assets/stand_button.png" />
-      <img src="assets/info_block_bg.png" />
-      <img src="assets/play_again.png" />
-    </div>
-      <canvas id="demoCanvas" width="1200" height="800">
-      </canvas>
-    <div id='this-game' float='top'>
-      Quick link to this game: <span id='this-game-link'><a href='{{ game_link }}'>{{ game_link }}</a></span>
-    </div>
   </body>
 </html>
