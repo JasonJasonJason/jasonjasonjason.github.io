@@ -194,17 +194,17 @@
         currentMoneyText = new createjs.Text('', "18px Arial", "#444444");
         currentMoneyText.set({
           x:15,
-          y:55
+          y:65
         });
         currentBetText = new createjs.Text('', "18px Arial", "#444444");
         currentBetText.set({
           x:15,
-          y:80
+          y:90
         });
         timerText = new createjs.Text('', '18px Arial', '#444444');
         timerText.set({
           x:15,
-          y:105
+          y:115
         });
         infoBlock.addChild(currentBetText);
         infoBlock.addChild(currentMoneyText);
@@ -216,7 +216,7 @@
         menuBlock.x = ($('#demoCanvas').width() - menuBackground.getBounds().width)/2;
         menuBlock.y = 240;
         menuBlock.addChild(menuBackground);
-        mainMenuButton = new createjs.Bitmap('assets/menu.png');
+        mainMenuButton = new createjs.Bitmap('assets/casino_back.png');
         mainMenuButton.enabled = true;
         mainMenuButton.x = (menuBackground.getBounds().width - mainMenuButton.getBounds().width)/2;
         mainMenuButton.y = 100;
