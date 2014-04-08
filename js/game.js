@@ -239,7 +239,7 @@ var Player = function (){
 
         $.post('http://casino.curtiswendel.me:3000/api/requestFunds?userID=2&amount=30')
         .done(function(data){
-        	alert (JSON.stringify(data));
+            alert('data: '+data.error);
         });
     }
 

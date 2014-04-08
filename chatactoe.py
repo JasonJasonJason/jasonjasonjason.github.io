@@ -30,12 +30,14 @@ class Game(ndb.Model):
   dealer   = ndb.PickleProperty()
   user     = ndb.PickleProperty()
   game_key = ndb.StringProperty()
+  user_id  = ndb.StringProperty()
 
 def createNewGame(game_key):
   return Game(
                 game_key = game_key,
                 dealer   = Dealer().getHand().cards,
-                user     = User().getHand().cards
+                user     = User().getHand().cards,
+                user_id  = 'JasonHarris'
               )
 
 
@@ -55,7 +57,7 @@ class GameUpdater():
 
   def send_update(self):
     message = self.get_game_message()
-    # channel.send_message(self.game.userX.user_id() + self.game.key().id_or_name(), message)
+    channel.send_message(self.game.user_id + self.game.game_key, message)
     # if self.game.userO:
     #   channel.send_message(self.game.userO.user_id() + self.game.key().id_or_name(), message)
 
@@ -132,27 +134,22 @@ class MainPage(webapp.RequestHandler):
     for game in games:
       game.key.delete()
 
-
-    user = users.get_current_user()
+    user_id = 'JasonHarris'
     game_key = self.request.get('g')
     game = None
-    if user:
-      if not game_key:
-        game_key = user.user_id()
+    if not game_key:
+        game_key = '12345'
         logging.info('creating new game')
         game = createNewGame(game_key)
         game.put()
-      else:
+    else:
         logging.info('getting old game from db')
         game = Game.query(Game.game_key == game_key).fetch(1)[0]
-        if not game.userO:
-          game.userO = user
-          game.put()
 
-      game_link = 'http://localhost:8080/?g=' + game_key
+    game_link = 'http://localhost:8080/?g=' + game_key
 
-      if game:
-        token = channel.create_channel(user.user_id() + game_key)
+    if game:
+        token = channel.create_channel(user_id + game_key)
         template_values = {'token': token,
                            'game_key': game_key,
                            'game_link': game_link
@@ -160,10 +157,8 @@ class MainPage(webapp.RequestHandler):
         path = os.path.join(os.path.dirname(__file__), 'index.html')
 
         self.response.out.write(template.render(path,template_values))
-      else:
-        self.response.out.write('No such game')
     else:
-      self.redirect(users.create_login_url(self.request.uri))
+        self.response.out.write('No such game')
 
 
 class Hand(object):
