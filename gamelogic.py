@@ -31,7 +31,7 @@ class Hand(object):
     self.hitMe()
 
   def hitMe(self):
-    if len(self.cards) < 5:
+    if len(self.cards) < 5 and self.score() < 21:
       self.cards.append(self.deck.deal());
 
   def total(self):
@@ -107,7 +107,11 @@ class User():
     return self.hand
 
   def getDict(self):
-    return self.hand.getDict()
+    return {
+      'cards':self.hand.getDict(),
+      'bust': (self.hand.score() > 21)
+      }
 
   def hitMe(self):
-    self.hand.hitMe()
+    if(self.hand.score() < 21):
+      self.hand.hitMe()

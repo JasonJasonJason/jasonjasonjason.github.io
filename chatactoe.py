@@ -163,7 +163,9 @@ class StandPage(webapp.RequestHandler):
     standForUser(game, id)  
 
 def hitForUser(game, id):
-  game.user.hitMe()
+
+  if len(game.user.getHand().cards) < 5:
+    game.user.hitMe()
   game.put()
   GameUpdater(game).send_update()
 

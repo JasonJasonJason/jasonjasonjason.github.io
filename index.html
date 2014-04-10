@@ -34,18 +34,16 @@
         updateGame = function() {
           //Update displays and logic based on received values from server
           if(state.game_state == 'new_game'){
-            console.log('game is starting');
             startGame();
           }
           if(state.game_state == 'end_game'){
-            console.log('game is ending');
-            
-            newGame();
-            showEndGame(state.end_message, true)
+            console.log('user bust? ' + state.user.bust);
+            updateScreen();
+            endUserTurn();
+            setTimeout(showEndGame, 1200, state.end_message, true);
           }
           if(state.game_state == 'user_turn'){
-            console.log('game is in user_turn.');
-            newGame();
+            updateScreen();
           }
         };
         
@@ -241,18 +239,18 @@
 
         var menuBackground = new createjs.Bitmap('assets/end_game.png');
         menuBlock = new createjs.Container();
-        menuBlock.x = ($('#demoCanvas').width() - 100)/2;
+        menuBlock.x = ($('#demoCanvas').width() - 400)/2;
         menuBlock.y = 240;
         menuBlock.addChild(menuBackground);
         mainMenuButton = new createjs.Bitmap('assets/casino_back.png');
         mainMenuButton.enabled = true;
-        mainMenuButton.x = (200 - 100)/2;
+        mainMenuButton.x = 110;
         mainMenuButton.y = 100;
         mainMenuButton.addEventListener("click", onMainMenuButtonClicked);
         menuBlock.addChild(mainMenuButton);
         resumeGameButton = new createjs.Bitmap('assets/resume_game.png');
         resumeGameButton.enabled = true;
-        resumeGameButton.x = (menuBackground.getBounds().width - mainMenuButton.getBounds().width)/2;
+        resumeGameButton.x = 110;
         resumeGameButton.y = 50;
         resumeGameButton.addEventListener("click", onResumeGameButtonClicked);
         menuBlock.addChild(resumeGameButton);
@@ -293,13 +291,13 @@
         endUserTurn();
       }
 
-      var newGame = function(){
+      var updateScreen = function(){
 
         //$.get( serverURL + 'join', function( data ) {
         //   alert( "Joined Game: " + data.game_id +'\nNumber of players: '+data.number_of_players);
         //});
         var newDealerHand     = new Hand(state.dealer);
-        var newUserHand       = new Hand(state.user);
+        var newUserHand       = new Hand(state.user.cards);
         var newDealerCards    = newDealerHand.getHand();
         var newUserCards      = newUserHand.getHand();
 
@@ -333,8 +331,6 @@
         newUserHand.setHand(newUserCards);
         dealerHand        = newDealerHand;
         userHand          = newUserHand;
-        dealerHandSprites = new Array();
-        userHandSprites   = new Array();
         dealerCards       = dealerHand.getHand();
         userCards         = userHand.getHand();
 
@@ -365,11 +361,6 @@
           }
         }
 
-        console.log('user cards:');console.log(userCards);
-
-        createjs.Ticker.addEventListener("tick", onTick);
-        fpsCount = 0;
-        updateTimerText();
       }
 
       var addDealerCard = function(card, cardNumber, shouldFlip){
@@ -390,24 +381,21 @@
         var newUserCard = getCardSprite(card.number, card.suite);
         userHandSprites.push(newUserCard);
         animateNewCard(newUserCard, 535+cardNumber*12, 425+cardNumber*6, shouldFlip);
-        createjs.Tween.get(null).to({}, 800).call(function(){
-          checkEndGame();
-        });
       }
 
-      var checkEndGame = function(){
-        if(!takingInput)
-          return;
+      // var checkEndGame = function(){
+      //   if(!takingInput)
+      //     return;
 
-        if(userHand.score() > 21)
-        {
-          endGame();
-        }
-        else if(userHand.score() == 21)
-        {
-          finishDealerHand();
-        }
-      }
+      //   if(userHand.score() > 21)
+      //   {
+      //     endGame();
+      //   }
+      //   else if(userHand.score() == 21)
+      //   {
+      //     finishDealerHand();
+      //   }
+      // }
 
       var endGame = function(){
         if(!takingInput)
@@ -509,7 +497,18 @@
 
       var startGame = function(){
         takingInput = true;
+        updateScreen();
+        
         newGame();
+      }
+
+      var newGame = function(){
+        createjs.Ticker.addEventListener("tick", onTick);
+        fpsCount = 0;
+        updateTimerText();
+
+        dealerHandSprites = new Array();
+        userHandSprites   = new Array();
       }
 
       var onHitButtonClicked = function(event){
@@ -529,31 +528,6 @@
         user.increaseBet(betAmount);
       }
 
-      var finishDealerHand = function(){
-
-        if(!takingInput)
-          return;
-
-        if(dealerHand.score() < 17 && dealerHand.length() < 5){
-          dealerHand.hitMe();
-        }
-        else
-        {
-          endGame();
-        }
-        if(dealerHand.length() > dealerHandSprites.length)
-        {
-          addDealerCard(false);
-        }
-
-        setTimeout(function(){
-          if(dealerHand.score() < 17 && dealerHand.length() < 5){
-            finishDealerHand();
-          }
-          else
-            endGame();
-        }, 1000);
-      }
 
       var animateNewCard = function(cardSprite, destinationX, destinationY, shouldFlip){
         stage.addChild(cardSprite);
@@ -609,9 +583,6 @@
         {
           var cardSprite = dealerHandSprites[0];
           flipCard(cardSprite);
-          setTimeout(function(){
-            finishDealerHand();
-          }, 1000);
         }
       }
 
