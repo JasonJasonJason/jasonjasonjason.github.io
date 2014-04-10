@@ -18,6 +18,9 @@ random.seed()
 import re
 import sys
 from django.utils import simplejson
+from gamelogic import *
+import json
+from banklogic import *
 from google.appengine.api import channel
 from google.appengine.api import users
 from google.appengine.ext import ndb
@@ -25,27 +28,35 @@ from google.appengine.ext import webapp
 from google.appengine.ext.webapp import template
 from google.appengine.ext.webapp.util import run_wsgi_app
 
+class GAME_STATE:
+  NEW_GAME  = 'new_game'
+  END_GAME  = 'end_game'
+  USER_TURN = 'user_turn'
+
 class Game(ndb.Model):
   """All the data we store for a game"""
   dealer          = ndb.PickleProperty()
-  dealer_suites   = ndb.PickleProperty()
   user            = ndb.PickleProperty()
-  user_suites     = ndb.PickleProperty()
   game_key        = ndb.StringProperty()
   user_id         = ndb.StringProperty()
+  deck            = ndb.PickleProperty()
+  state           = ndb.StringProperty()
+  end_message     = ndb.StringProperty()
 
 def createNewGame(game_key):
-    dealer = Dealer()
-    user = User()
+    deck = Deck()
+    deck.shuffle()
+    dealer = Dealer(deck)
+    user = User(deck)
     return Game(
                 game_key      = game_key,
-                dealer        = dealer.getHand().cards,
-                dealer_suites = dealer.getHand().suites,
-                user          = user.getHand().cards,
-                user_suites   = user.getHand().suites,
-                user_id       = 'JasonHarris'
+                dealer        = dealer,
+                user          = user,
+                deck          = deck,
+                user_id       = 'JasonHarris',
+                state         = GAME_STATE.NEW_GAME,
+                end_message   = 'Error string...123'
                 )
-
 
 class GameUpdater():
   game = None
@@ -54,14 +65,16 @@ class GameUpdater():
     self.game = game
 
   def get_game_message(self):
+    logging.info('get_game_message')
     gameUpdate = {
-      'dealer': self.game.dealer,
-      'user'  : self.game.user,
-      'dealer_suites': self.game.dealer_suites,
-      'user_suites'  : self.game.user_suites
+      'dealer'      : self.game.dealer.getDict(),
+      'user'        : self.game.user.getDict(),
+      'user_id'     : self.game.user_id,
+      'state'       : self.game.state,
+      'end_message' : self.game.end_message
     }
-    logging.info('JSON game update: ' + str(simplejson.dumps(gameUpdate)))
-    return simplejson.dumps(gameUpdate)
+    logging.info('JSON game update: ' + str(json.dumps(gameUpdate)))
+    return json.dumps(gameUpdate)
 
   def send_update(self):
     message = self.get_game_message()
@@ -114,20 +127,57 @@ class GameFromRequest():
     return self.game
 
 
-class MovePage(webapp.RequestHandler):
+class Test(webapp.RequestHandler):
+  def get(self):
+    self.response.write('Currently testing nothing. Have a nice day.')
 
-  def post(self):
-    game = GameFromRequest(self.request).get_game()
-    user = users.get_current_user()
-    if game and user:
-      id = int(self.request.get('i'))
-      GameUpdater(game).make_move(id, user)
+  class MovePage(webapp.RequestHandler):
+
+    def post(self):
+      game = GameFromRequest(self.request).get_game()
+      user = users.get_current_user()
+      if game and user:
+        id = int(self.request.get('i'))
+        GameUpdater(game).make_move(id, user)
 
 
 class OpenedPage(webapp.RequestHandler):
   def post(self):
     game = GameFromRequest(self.request).get_game()
     GameUpdater(game).send_update()
+    game.state = GAME_STATE.USER_TURN
+    game.put()
+
+class HitPage(webapp.RequestHandler):
+  def post(self):
+    game = GameFromRequest(self.request).get_game()
+    id = self.request.get('user_id')
+    logging.info('hitting for user_id: ' + str(id))
+    hitForUser(game, id)
+
+class StandPage(webapp.RequestHandler):
+  def post(self):
+    game = GameFromRequest(self.request).get_game()
+    id = self.request.get('user_id')
+    logging.info('standing for user_id: ' + str(id))
+    standForUser(game, id)  
+
+def hitForUser(game, id):
+  game.user.hitMe()
+  game.put()
+  GameUpdater(game).send_update()
+
+def standForUser(game, id):
+  dealer = game.dealer
+  while dealer.getHand().score() < 18:
+    dealer.hitMe()
+  game.state = GAME_STATE.END_GAME
+  game.dealer = dealer
+  game.end_message = 'End message ex'
+
+  game.put()
+  GameUpdater(game).send_update()
+
 
 
 class MainPage(webapp.RequestHandler):
@@ -169,52 +219,13 @@ class MainPage(webapp.RequestHandler):
         self.response.out.write('No such game')
 
 
-class Hand(object):
-  all_cards  = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
-  all_suites = [1, 2, 3, 4]
-
-  def __init__(self):
-    self.cards  = []
-    self.suites = []
-
-    self.hitMe()
-    self.hitMe()
-
-  def hitMe(self):
-    if len(self.cards) < 5:
-      self.cards.append(random.choice(self.all_cards));
-      self.suites.append(random.choice(self.all_suites));
-
-  def total():
-      aces = cards.count(11)
-      t = sum(cards)
-      if t > 21 and aces > 0:
-          while aces > 0 and t > 21:
-              t -= 10
-              aces -= 1
-      return t
-
-class Dealer():
-  def __init__(self):
-    self.hand = Hand()
-
-  def getHand(self):
-    return self.hand
-
-
-class User():
-  def __init__(self):
-    self.hand = Hand()
-
-  def getHand(self):
-    return self.hand
-
-
 
 application = webapp.WSGIApplication([
     ('/', MainPage),
     ('/opened', OpenedPage),
-    ('/move', MovePage)], debug=True)
+    ('/hit', HitPage),
+    ('/stand', StandPage),
+    ('/test', Test)], debug=True)
 
 
 def main():

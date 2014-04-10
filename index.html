@@ -33,7 +33,20 @@
 
         updateGame = function() {
           //Update displays and logic based on received values from server
-          startGame();
+          if(state.game_state == 'new_game'){
+            console.log('game is starting');
+            startGame();
+          }
+          if(state.game_state == 'end_game'){
+            console.log('game is ending');
+            
+            newGame();
+            showEndGame(state.end_message, true)
+          }
+          if(state.game_state == 'user_turn'){
+            console.log('game is in user_turn.');
+            newGame();
+          }
         };
         
         isMyMove = function() {
@@ -50,12 +63,6 @@
           xhr.send();
         };
 
-        moveInSquare = function(id) {
-          // if (isMyMove() && state.board[id] == ' ') {
-          //   sendMessage('/move', 'i=' + id);
-          // }
-          
-        }
         
         onOpened = function() {
           sendMessage('/opened');
@@ -64,10 +71,11 @@
         onMessage = function(m) {
           newState = JSON.parse(m.data);
           console.log(newState);
-          state.dealer = newState.dealer;
-          state.user   = newState.user;
-          state.dealer_suites = newState.dealer_suites;
-          state.user_suites   = newState.user_suites;
+          state.dealer      = newState.dealer;
+          state.user        = newState.user;
+          state.user_id     = newState.user_id;
+          state.game_state  = newState.state;
+          state.end_message = newState.end_message;
           updateGame();
         }
         
@@ -92,7 +100,6 @@
 
         setTimeout(initialize, 550);
         setTimeout(init, 250);
-        
 
     /*
       Notes: Pass the transactions/banking team hand:{"clubs", "three"}, {"spades", "ace"}, winAmount:51.5, 
@@ -106,6 +113,7 @@
       var dealerHand;
       var dealerHandSprites;
       var dealerCards;
+      var userCards;
       var deckX = 965;
       var deckY = 80;
       var takingInput = true;
@@ -132,9 +140,6 @@
       var Suites = {
         Clubs: 1,  Spades: 2, Hearts: 3, Diamonds: 4
       };
-      function Dealer() {
-        
-      }
 
       function getCardSprite(CardType, SuiteType){
       
@@ -287,9 +292,41 @@
         //$.get( serverURL + 'join', function( data ) {
         //   alert( "Joined Game: " + data.game_id +'\nNumber of players: '+data.number_of_players);
         //});
-		
-        dealerHand        = new Hand(state.dealer_suites, state.dealer);
-        userHand          = new Hand(state.user_suites,   state.user);
+        var newDealerHand     = new Hand(state.dealer);
+        var newUserHand       = new Hand(state.user);
+        var newDealerCards    = newDealerHand.getHand();
+        var newUserCards      = newUserHand.getHand();
+
+        for(var i=0; i<newDealerCards.length; i++){
+          newDealerCards[i].newCard = true;
+        }
+
+        if(dealerCards){
+          for(var i=0; i<dealerCards.length; i++){
+            newCard = newDealerCards[i];
+            card = dealerCards[i];
+            if(card.suite == newCard.suite && card.number == newCard.number)
+              newCard.newCard = false;
+          }
+        }
+
+        for(var i=0; i<newUserCards.length; i++){
+          newUserCards[i].newCard = true;
+        }
+
+        if(userCards){
+          for(var i=0; i<userCards.length; i++){
+            newCard = newUserCards[i];
+            card = userCards[i];
+            if(card.suite == newCard.suite && card.number == newCard.number)
+              newCard.newCard = false;
+          }
+        }
+
+        newDealerHand.setHand(newDealerCards);
+        newUserHand.setHand(newUserCards);
+        dealerHand        = newDealerHand;
+        userHand          = newUserHand;
         dealerHandSprites = new Array();
         userHandSprites   = new Array();
         dealerCards       = dealerHand.getHand();
@@ -302,50 +339,51 @@
         animationDelay = 0;
 
         for(var i=0; i<dealerCards.length; i++) {
-          setTimeout(function(){
-            addDealerCard(false);
-          }, animationDelay);
-          animationDelay += 250;
+          if(dealerCards[i].newCard){
+            if(dealerCards[i].newCard){
+              setTimeout(addDealerCard, animationDelay, dealerCards[i], i, false);
+              animationDelay += 250;
+            }
+          }
         }
 
-        animationDelay += 500;
+        if(animationDelay > 0)
+          animationDelay += 500;
 
         for(var i=0; i<userCards.length; i++) {
-          setTimeout(function(){
-            addCardSprite(true);
-          }, animationDelay);
-          animationDelay += 250;
+          if(userCards[i].newCard){
+            if(userCards[i].newCard){
+              setTimeout(addCardSprite, animationDelay, userCards[i], i, true);
+              animationDelay += 250;
+            }
+          }
         }
+
+        console.log('user cards:');console.log(userCards);
 
         createjs.Ticker.addEventListener("tick", onTick);
         fpsCount = 0;
         updateTimerText();
       }
 
-      var addDealerCard = function(shouldFlip){
+      var addDealerCard = function(card, cardNumber, shouldFlip){
         if(!takingInput)
           return;
 
-        var cards = dealerHand.getHand();
-        var numberOfCards = dealerHandSprites.length;
-        var newCard = cards[numberOfCards];
-        var newDealerCard = getCardSprite(newCard.getNumber(), newCard.getSuitNumber());
-        newDealerCard.x = 450 + numberOfCards*50;
-        newDealerCard.y = 140 + numberOfCards*5;
+        var newDealerCard = getCardSprite(card.number, card.suite);
+        newDealerCard.x = 450 + cardNumber*50;
+        newDealerCard.y = 140 + cardNumber*5;
         dealerHandSprites.push(newDealerCard);
-        animateNewCard(newDealerCard, 450 + numberOfCards*50, 140+numberOfCards*5, numberOfCards>0);
+        animateNewCard(newDealerCard, 450 + cardNumber*50, 140+cardNumber*5, cardNumber>0);
       }
 
-      var addCardSprite = function(shouldFlip){
+      var addCardSprite = function(card, cardNumber, shouldFlip){
         if(!takingInput)
           return;
 
-        var cards = userHand.getHand();
-        var numberOfCards = userHandSprites.length;
-        var newCard = cards[numberOfCards];
-        var newUserCard = getCardSprite(newCard.getNumber(), newCard.getSuitNumber());
+        var newUserCard = getCardSprite(card.number, card.suite);
         userHandSprites.push(newUserCard);
-        animateNewCard(newUserCard, 535+numberOfCards*12, 425+numberOfCards*6, shouldFlip);
+        animateNewCard(newUserCard, 535+cardNumber*12, 425+cardNumber*6, shouldFlip);
         createjs.Tween.get(null).to({}, 800).call(function(){
           checkEndGame();
         });
@@ -470,13 +508,15 @@
 
       var onHitButtonClicked = function(event){
         // sendMessage
-        if(takingInput)
-        {
-          userHand.hitMe();
-          addCardSprite(true);
-          fpsCount = 0;
-          updateTimerText();
-        }
+        sendMessage('/hit', 'user_id=' + state.user_id);
+
+        // if(takingInput)
+        // {
+        //   userHand.hitMe();
+        //   addCardSprite(true);
+        //   fpsCount = 0;
+        //   updateTimerText();
+        // }
       }
 
       var onBetButtonClicked = function(betAmount){
@@ -550,7 +590,8 @@
         if(!event.target.enabled)
           return;
 
-        endUserTurn();
+        sendMessage('/stand', 'user_id=' + state.user_id);
+        // endUserTurn();
       }
 
       var endUserTurn = function(event){
