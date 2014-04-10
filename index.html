@@ -250,6 +250,12 @@
         mainMenuButton.y = 100;
         mainMenuButton.addEventListener("click", onMainMenuButtonClicked);
         menuBlock.addChild(mainMenuButton);
+        resumeGameButton = new createjs.Bitmap('assets/resume_game.png');
+        resumeGameButton.enabled = true;
+        resumeGameButton.x = (menuBackground.getBounds().width - mainMenuButton.getBounds().width)/2;
+        resumeGameButton.y = 50;
+        resumeGameButton.addEventListener("click", onResumeGameButtonClicked);
+        menuBlock.addChild(resumeGameButton);
 
         var menuButton = new createjs.Bitmap('assets/menu.png');
         menuButton.x = 26;
@@ -654,6 +660,10 @@
 
       var onMainMenuButtonClicked = function(event){
         window.location = "http://casino.curtiswendel.me/gamefloor.html";
+      }
+
+      var onResumeGameButtonClicked = function(event){
+        stage.removeChild(menuBlock);
       }
 
     </script>
