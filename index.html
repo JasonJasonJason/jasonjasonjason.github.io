@@ -37,11 +37,9 @@
             startGame();
           }
           if(state.game_state == 'end_game'){
-            console.log('user bust? ' + state.user.bust);
-
             updateScreen();
             endUserTurn();
-            setTimeout(showEndGame, 1200, state.end_message, state.user);
+            setTimeout(showEndGame, 1200, state.end_message, state.me);
           }
           if(state.game_state == 'user_turn'){
             updateScreen();
@@ -70,11 +68,12 @@
         onMessage = function(m) {
           newState = JSON.parse(m.data);
           console.log(newState);
-          state.dealer      = newState.dealer;
-          state.user        = newState.user;
-          state.user_id     = newState.user_id;
-          state.game_state  = newState.state;
-          state.end_message = newState.end_message;
+          state.dealer          = newState.dealer;
+          state.other_users     = newState.other_users;
+          state.current_user_id = newState.current_user_id;
+          state.me              = newState.me;
+          state.game_state      = newState.state;
+          state.end_message     = newState.end_message;
           updateGame();
         }
         
@@ -298,7 +297,7 @@
         //   alert( "Joined Game: " + data.game_id +'\nNumber of players: '+data.number_of_players);
         //});
         var newDealerHand     = new Hand(state.dealer);
-        var newUserHand       = new Hand(state.user.cards);
+        var newUserHand       = new Hand(state.me.cards);
         var newDealerCards    = newDealerHand.getHand();
         var newUserCards      = newUserHand.getHand();
 
@@ -525,7 +524,7 @@
 
       var onHitButtonClicked = function(event){
         // sendMessage
-        sendMessage('/hit', 'user_id=' + state.user_id);
+        sendMessage('/hit', 'user_id=' + state.me.user_id);
 
         // if(takingInput)
         // {
@@ -538,7 +537,7 @@
 
       var onBetButtonClicked = function(betAmount){
         // user.increaseBet(betAmount);
-        sendMessage('/bet', 'user_id=' + state.user_id + '&bet_amount=' + betAmount);
+        sendMessage('/bet', 'user_id=' + state.me.user_id + '&bet_amount=' + betAmount);
       }
 
 
@@ -583,7 +582,7 @@
         if(!event.target.enabled)
           return;
 
-        sendMessage('/stand', 'user_id=' + state.user_id);
+        sendMessage('/stand', 'user_id=' + state.me.user_id);
         // endUserTurn();
       }
 

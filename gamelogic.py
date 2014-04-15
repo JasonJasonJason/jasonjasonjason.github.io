@@ -100,10 +100,11 @@ class Dealer():
 
 
 class User():
-  def __init__(self, deck):
+  def __init__(self, deck, new_id):
     self.hand = Hand(deck)
     self.bet = 0
     self.game_result = ''
+    self.user_id = new_id
 
   def getHand(self):
     return self.hand
@@ -113,7 +114,8 @@ class User():
       'cards':self.hand.getDict(),
       'bust' :(self.hand.score() > 21),
       'bet'  :self.bet,
-      'game_result': self.game_result
+      'game_result': self.game_result,
+      'user_id':self.user_id
       }
 
   def hitMe(self):

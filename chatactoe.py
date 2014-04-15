@@ -6,8 +6,8 @@ random.seed()
 import re
 import sys
 from django.utils import simplejson
-from gamelogic import *
 import json
+from gamelogic import *
 from banklogic import *
 from google.appengine.api import channel
 from google.appengine.api import users
@@ -24,26 +24,29 @@ class GAME_STATE:
 class Game(ndb.Model):
   """All the data we store for a game"""
   dealer          = ndb.PickleProperty()
-  user            = ndb.PickleProperty()
+  users           = ndb.PickleProperty()
   game_key        = ndb.StringProperty()
-  user_id         = ndb.StringProperty()
+  current_user_id = ndb.StringProperty()
   deck            = ndb.PickleProperty()
   state           = ndb.StringProperty()
   end_message     = ndb.StringProperty()
 
-def createNewGame(game_key):
+def generateGameKey():
+    return random.randrange(100)
+
+def createNewGame(game_key, user_id):
     deck = Deck()
     deck.shuffle()
     dealer = Dealer(deck)
-    user = User(deck)
+    users = [User(deck, user_id), User(deck, '123')]
     return Game(
-                game_key      = game_key,
-                dealer        = dealer,
-                user          = user,
-                deck          = deck,
-                user_id       = 'JasonHarris',
-                state         = GAME_STATE.NEW_GAME,
-                end_message   = 'End string...123'
+                game_key        = game_key,
+                dealer          = dealer,
+                users           = users,
+                deck            = deck,
+                current_user_id = '',
+                state           = GAME_STATE.NEW_GAME,
+                end_message     = 'End string...123'
                 )
 
 class GameUpdater():
@@ -52,21 +55,26 @@ class GameUpdater():
   def __init__(self, game):
     self.game = game
 
-  def get_game_message(self):
-    logging.info('get_game_message')
+  def get_game_message_for_user(self, current_user):
+    logging.info('get_game_message_for_user: '+str(current_user.user_id))
+
+    users_list = [user.getDict() for user in self.game.users if user != current_user]
+
     gameUpdate = {
-      'dealer'      : self.game.dealer.getDict(),
-      'user'        : self.game.user.getDict(),
-      'user_id'     : self.game.user_id,
-      'state'       : self.game.state,
-      'end_message' : self.game.end_message
+      'dealer'          : self.game.dealer.getDict(),
+      'users'           : users_list,
+      'me'              : current_user.getDict(),
+      'current_user_id' : self.game.current_user_id,
+      'state'           : self.game.state,
+      'end_message'     : self.game.end_message
     }
     logging.info('JSON game update: ' + str(json.dumps(gameUpdate)))
     return json.dumps(gameUpdate)
 
   def send_update(self):
-    message = self.get_game_message()
-    channel.send_message(self.game.user_id + self.game.game_key, message)
+    for user in self.game.users:
+        message = self.get_game_message_for_user(user)
+        channel.send_message(user.user_id + self.game.game_key, message)
     # if self.game.userO:
     #   channel.send_message(self.game.userO.user_id() + self.game.key().id_or_name(), message)
 
@@ -160,69 +168,85 @@ class StandPage(webapp.RequestHandler):
 
 def hitForUser(game, id):
 
-  if len(game.user.getHand().cards) < 5:
-    game.user.hitMe()
-  game.put()
-  GameUpdater(game).send_update()
+    current_user = next((user for user in game.users if user.user_id == id), None)
+    
+    if len(current_user.getHand().cards) < 5:
+        current_user.hitMe()
+    game.put()
+    GameUpdater(game).send_update()
 
 def standForUser(game, id):
-  dealer = game.dealer
-  while dealer.getHand().score() < 18:
-    dealer.hitMe()
-  game.state = GAME_STATE.END_GAME
-  
-  game.end_message = 'End message ex'
 
-  game.user.setGameResult(game.dealer.getHand())
+    current_user = next((user for user in game.users if user.user_id == id), None)
 
-  game.put()
-  GameUpdater(game).send_update()
+    dealer = game.dealer
+    while dealer.getHand().score() < 18:
+        dealer.hitMe()
+    game.state = GAME_STATE.END_GAME
+
+    game.end_message = 'End of round'
+
+    current_user.setGameResult(game.dealer.getHand())
+
+    game.put()
+    GameUpdater(game).send_update()
 
 def betForUser(game, id, betAmount):
-  game.user.changeBet(betAmount);
-  game.put()
-  GameUpdater(game).send_update()
+    current_user = next((user for user in game.users if user.user_id == id), None)
+    current_user.changeBet(betAmount);
+    game.put()
+    GameUpdater(game).send_update()
 
 
-class MainPage(webapp.RequestHandler):
-  """The main UI page, renders the 'index.html' template."""
+class Page(webapp.RequestHandler):
+    def get(self):
+        return
 
-  def get(self):
-    """Renders the main page. When this page is shown, we create a new
-    channel to push asynchronous updates to the client."""
+    def sendGameInfo(self, game, user_id):
+        logging.info("parent's sendGameInfo method")  
 
-    game_key = self.request.get('g')
-    if not game_key:
-      #delete all previous games
-      games = Game.query().fetch()
-      for game in games:
-        game.key.delete()
-
-    user_id = 'JasonHarris'
-    
-    game = None
-    if not game_key:
-        game_key = '12345'
-        logging.info('creating new game')
-        game = createNewGame(game_key)
-        game.put()
-    else:
-        logging.info('getting old game from db')
-        game = Game.query(Game.game_key == game_key).fetch(1)[0]
-
-    game_link = 'http://localhost:8080/?g=' + game_key
-
-    if game:
-        token = channel.create_channel(user_id + game_key)
+        game_link = 'http://localhost:8080/?g=' + game.game_key
+        token = channel.create_channel(user_id + game.game_key)
         template_values = {'token': token,
-                           'game_key': game_key,
+                           'game_key': game.game_key,
                            'game_link': game_link
                           }
         path = os.path.join(os.path.dirname(__file__), 'index.html')
 
-        self.response.out.write(template.render(path,template_values))
-    else:
-        self.response.out.write('No such game')
+        self.response.out.write(template.render(path,template_values))  
+
+class NewPage(Page):
+    def get(self):
+        id = self.request.get('id')
+        game_key = str(generateGameKey())
+        logging.info('Creating new game with user: ' + str(id) + " and game_key: " + game_key)
+        
+        game = createNewGame(game_key, id)
+        game.put()
+        self.sendGameInfo(game, id);
+
+class MainPage(Page):
+    """The main UI page, renders the 'index.html' template."""
+
+    def get(self):
+        """Renders the main page. When this page is shown, we create a new
+        channel to push asynchronous updates to the client."""
+
+        game_key = self.request.get('g')
+        if not game_key:
+            self.showGameMenu()
+            return
+
+        user_id = self.request.get('id')
+        game = Game.query(Game.game_key == game_key).fetch(1)[0]
+
+        if game:
+            self.sendGameInfo(game, user_id);
+        else:
+            self.response.out.write('No such game')
+
+    def showGameMenu(self):
+        self.response.out.write('No games! <a href=\'http://localhost:8080/new\'>Create one</a>')
 
 
 
@@ -232,6 +256,7 @@ application = webapp.WSGIApplication([
     ('/hit',    HitPage),
     ('/stand',  StandPage),
     ('/bet',    BetPage),
+    ('/new',    NewPage),
     ('/test',   Test)], debug=True)
 
 
@@ -240,3 +265,9 @@ def main():
 
 if __name__ == "__main__":
   main()
+
+
+# delete all previous games
+# games = Game.query().fetch()
+# for game in games:
+#     game.key.delete()
