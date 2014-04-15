@@ -38,9 +38,10 @@
           }
           if(state.game_state == 'end_game'){
             console.log('user bust? ' + state.user.bust);
+
             updateScreen();
             endUserTurn();
-            setTimeout(showEndGame, 1200, state.end_message, true);
+            setTimeout(showEndGame, 1200, state.end_message, state.user.bet);
           }
           if(state.game_state == 'user_turn'){
             updateScreen();
@@ -432,7 +433,7 @@
         user.lostBet();
       }
 
-      var showEndGame = function(message, didWin){
+      var showEndGame = function(message, winAmount){
         
         endGameContainer   = new createjs.Container();
 
@@ -449,10 +450,10 @@
           y:15
         });
 
-        if(didWin)
-          var detailMessage = 'You won $' + user.getCurrentBet() + '!';
+        if(winAmount >= 0)
+          var detailMessage = 'You won $'  + winAmount + '!';
         else
-          var detailMessage = 'You lost $'+user.getCurrentBet() + '.';
+          var detailMessage = 'You lost $' + winAmount + '.';
 
         var detailText = new createjs.Text(detailMessage, "30px Arial", "#666666");
         detailText.set({
@@ -525,7 +526,8 @@
       }
 
       var onBetButtonClicked = function(betAmount){
-        user.increaseBet(betAmount);
+        // user.increaseBet(betAmount);
+        sendMessage('/bet', 'user_id=' + state.user_id + '&bet_amount=' + betAmount);
       }
 
 

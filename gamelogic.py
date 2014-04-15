@@ -102,6 +102,7 @@ class Dealer():
 class User():
   def __init__(self, deck):
     self.hand = Hand(deck)
+    self.bet = 0
 
   def getHand(self):
     return self.hand
@@ -109,9 +110,13 @@ class User():
   def getDict(self):
     return {
       'cards':self.hand.getDict(),
-      'bust': (self.hand.score() > 21)
+      'bust' :(self.hand.score() > 21),
+      'bet'  :self.bet
       }
 
   def hitMe(self):
     if(self.hand.score() < 21):
       self.hand.hitMe()
+
+  def changeBet(self, increaseAmount):
+    self.bet += increaseAmount

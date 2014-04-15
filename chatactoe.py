@@ -1,15 +1,3 @@
-#!/usr/bin/python2.4
-#
-# Copyright 2010 Google Inc. All Rights Reserved.
-
-# pylint: disable-msg=C6310
-
-"""Channel Tic Tac Toe
-
-This module demonstrates the App Engine Channel API by implementing a
-simple tic-tac-toe game.
-"""
-
 import datetime
 import logging
 import os
@@ -55,7 +43,7 @@ def createNewGame(game_key):
                 deck          = deck,
                 user_id       = 'JasonHarris',
                 state         = GAME_STATE.NEW_GAME,
-                end_message   = 'Error string...123'
+                end_message   = 'End string...123'
                 )
 
 class GameUpdater():
@@ -148,6 +136,14 @@ class OpenedPage(webapp.RequestHandler):
     game.state = GAME_STATE.USER_TURN
     game.put()
 
+class BetPage(webapp.RequestHandler):
+  def post(self):
+    game = GameFromRequest(self.request).get_game()
+    id = self.request.get('user_id')
+    betAmount = int(self.request.get('bet_amount'))
+    logging.info('betting for user_id: ' + str(id) + ' with bet amount: ' + str(betAmount))
+    betForUser(game, id, betAmount)
+
 class HitPage(webapp.RequestHandler):
   def post(self):
     game = GameFromRequest(self.request).get_game()
@@ -174,12 +170,16 @@ def standForUser(game, id):
   while dealer.getHand().score() < 18:
     dealer.hitMe()
   game.state = GAME_STATE.END_GAME
-  game.dealer = dealer
+  
   game.end_message = 'End message ex'
 
   game.put()
   GameUpdater(game).send_update()
 
+def betForUser(game, id, betAmount):
+  game.user.changeBet(betAmount);
+  game.put()
+  GameUpdater(game).send_update()
 
 
 class MainPage(webapp.RequestHandler):
@@ -188,14 +188,16 @@ class MainPage(webapp.RequestHandler):
   def get(self):
     """Renders the main page. When this page is shown, we create a new
     channel to push asynchronous updates to the client."""
-    logging.info('starting stuff!')
-    #delete all previous games
-    games = Game.query().fetch()
-    for game in games:
-      game.key.delete()
+
+    game_key = self.request.get('g')
+    if not game_key:
+      #delete all previous games
+      games = Game.query().fetch()
+      for game in games:
+        game.key.delete()
 
     user_id = 'JasonHarris'
-    game_key = self.request.get('g')
+    
     game = None
     if not game_key:
         game_key = '12345'
@@ -223,11 +225,12 @@ class MainPage(webapp.RequestHandler):
 
 
 application = webapp.WSGIApplication([
-    ('/', MainPage),
+    ('/',       MainPage),
     ('/opened', OpenedPage),
-    ('/hit', HitPage),
-    ('/stand', StandPage),
-    ('/test', Test)], debug=True)
+    ('/hit',    HitPage),
+    ('/stand',  StandPage),
+    ('/bet',    BetPage),
+    ('/test',   Test)], debug=True)
 
 
 def main():
