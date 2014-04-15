@@ -103,6 +103,7 @@ class User():
   def __init__(self, deck):
     self.hand = Hand(deck)
     self.bet = 0
+    self.game_result = ''
 
   def getHand(self):
     return self.hand
@@ -111,7 +112,8 @@ class User():
     return {
       'cards':self.hand.getDict(),
       'bust' :(self.hand.score() > 21),
-      'bet'  :self.bet
+      'bet'  :self.bet,
+      'game_result': self.game_result
       }
 
   def hitMe(self):
@@ -120,3 +122,19 @@ class User():
 
   def changeBet(self, increaseAmount):
     self.bet += increaseAmount
+
+  def setGameResult(self, dealerHand):
+  	if self.hand.score() > 21:
+  		self.game_result = 'user_bust'
+  	elif dealerHand.score() > 21:
+  		self.game_result = 'dealer_bust'
+  	elif self.hand.score() <= dealerHand.score():
+  		self.game_result = 'dealer_win'
+  	else:
+  		self.game_result = 'user_win'
+
+
+
+
+
+

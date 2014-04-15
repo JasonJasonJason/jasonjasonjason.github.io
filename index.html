@@ -41,7 +41,7 @@
 
             updateScreen();
             endUserTurn();
-            setTimeout(showEndGame, 1200, state.end_message, state.user.bet);
+            setTimeout(showEndGame, 1200, state.end_message, state.user);
           }
           if(state.game_state == 'user_turn'){
             updateScreen();
@@ -414,27 +414,38 @@
       }
 
       var userBust = function(){
-        showEndGame('You went bust!', false);
+        // showEndGame('You went bust!', false);
         user.lostBet();
       }
 
       var dealerBust = function(){
-        showEndGame('Dealer busted!', true);
+        // showEndGame('Dealer busted!', true);
         user.wonBet();
       }
 
       var userWin = function(){
-        showEndGame('You win!', true);
+        // showEndGame('You win!', true);
         user.wonBet();
       }
 
       var userLost = function(){
-        showEndGame('Dealer wins', false);
+        // showEndGame('Dealer wins', false);
         user.lostBet();
       }
 
-      var showEndGame = function(message, winAmount){
+      var showEndGame = function(message, user){
         
+        if(user.game_result == 'user_bust')
+        	message = 'You went bust!'
+        if(user.game_result == 'dealer_bust')
+        	message = 'Dealer went bust!'
+        if(user.game_result == 'dealer_win')
+        	message = 'Dealer won.'
+        if(user.game_result == 'user_win')
+        	message = 'You won!'
+
+        didUserWin = (user.game_result == 'user_win' || user.game_result == 'dealer_bust');
+
         endGameContainer   = new createjs.Container();
 
         endGameContainer.addChild(endGameImage);
@@ -450,10 +461,10 @@
           y:15
         });
 
-        if(winAmount >= 0)
-          var detailMessage = 'You won $'  + winAmount + '!';
+        if(didUserWin)
+          var detailMessage = 'You won $'  + user.bet + '!';
         else
-          var detailMessage = 'You lost $' + winAmount + '.';
+          var detailMessage = 'You lost $' + user.bet + '.';
 
         var detailText = new createjs.Text(detailMessage, "30px Arial", "#666666");
         detailText.set({

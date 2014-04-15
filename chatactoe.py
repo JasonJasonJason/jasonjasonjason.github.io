@@ -173,6 +173,8 @@ def standForUser(game, id):
   
   game.end_message = 'End message ex'
 
+  game.user.setGameResult(game.dealer.getHand())
+
   game.put()
   GameUpdater(game).send_update()
 
