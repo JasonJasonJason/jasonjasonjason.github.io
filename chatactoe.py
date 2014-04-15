@@ -30,15 +30,20 @@ class Game(ndb.Model):
   deck            = ndb.PickleProperty()
   state           = ndb.StringProperty()
   end_message     = ndb.StringProperty()
+  game_link = ''
 
 def generateGameKey():
     return random.randrange(100)
+
+def generateUserId():
+    return random.randrange(9999)
 
 def createNewGame(game_key, user_id):
     deck = Deck()
     deck.shuffle()
     dealer = Dealer(deck)
-    users = [User(deck, user_id), User(deck, '123')]
+    logging.info('creating user with id: '+user_id)
+    users = [User(deck, user_id)]
     return Game(
                 game_key        = game_key,
                 dealer          = dealer,
@@ -68,7 +73,8 @@ class GameUpdater():
       'state'           : self.game.state,
       'end_message'     : self.game.end_message
     }
-    logging.info('JSON game update: ' + str(json.dumps(gameUpdate)))
+    # JSON.stringify({"foo":"lorem","bar":"ipsum"}, null, 4)
+    logging.info('JSON game update: ' + str(json.dumps(gameUpdate, indent=4)))
     return json.dumps(gameUpdate)
 
   def send_update(self):
@@ -167,25 +173,18 @@ class StandPage(webapp.RequestHandler):
     standForUser(game, id)  
 
 def hitForUser(game, id):
-
-    current_user = next((user for user in game.users if user.user_id == id), None)
-    
+    current_user = next((user for user in game.users if user.user_id == id), None) 
     if len(current_user.getHand().cards) < 5:
         current_user.hitMe()
     game.put()
     GameUpdater(game).send_update()
 
 def standForUser(game, id):
-
     current_user = next((user for user in game.users if user.user_id == id), None)
-
-    dealer = game.dealer
-    while dealer.getHand().score() < 18:
-        dealer.hitMe()
+    while game.dealer.getHand().score() < 18:
+        game.dealer.hitMe()
     game.state = GAME_STATE.END_GAME
-
     game.end_message = 'End of round'
-
     current_user.setGameResult(game.dealer.getHand())
 
     game.put()
@@ -203,8 +202,6 @@ class Page(webapp.RequestHandler):
         return
 
     def sendGameInfo(self, game, user_id):
-        logging.info("parent's sendGameInfo method")  
-
         game_link = 'http://localhost:8080/?g=' + game.game_key
         token = channel.create_channel(user_id + game.game_key)
         template_values = {'token': token,
@@ -215,30 +212,28 @@ class Page(webapp.RequestHandler):
 
         self.response.out.write(template.render(path,template_values))  
 
-class NewPage(Page):
-    def get(self):
-        id = self.request.get('id')
-        game_key = str(generateGameKey())
-        logging.info('Creating new game with user: ' + str(id) + " and game_key: " + game_key)
-        
-        game = createNewGame(game_key, id)
-        game.put()
-        self.sendGameInfo(game, id);
-
 class MainPage(Page):
     """The main UI page, renders the 'index.html' template."""
 
     def get(self):
-        """Renders the main page. When this page is shown, we create a new
-        channel to push asynchronous updates to the client."""
-
         game_key = self.request.get('g')
+        user_id = self.request.get('id')
+
         if not game_key:
             self.showGameMenu()
             return
 
-        user_id = self.request.get('id')
-        game = Game.query(Game.game_key == game_key).fetch(1)[0]
+        game = None
+
+        if game_key == '0':
+            game_key = str(generateGameKey())
+            game = createNewGame(game_key, user_id)
+            game.put()
+            
+        if not game:
+            game = Game.query(Game.game_key == game_key).fetch(1)[0]
+            game.users.append(User(game.deck, user_id))
+            game.put()
 
         if game:
             self.sendGameInfo(game, user_id);
@@ -246,7 +241,15 @@ class MainPage(Page):
             self.response.out.write('No such game')
 
     def showGameMenu(self):
-        self.response.out.write('No games! <a href=\'http://localhost:8080/new\'>Create one</a>')
+        games = Game.query().fetch()
+        for game in games:
+            game.game_link = 'http://localhost:8080/?g=' + game.game_key
+
+        user_id = generateUserId()
+        template_values = { 'games': games, 'user_id':user_id }
+        path = os.path.join(os.path.dirname(__file__), 'menu.html')
+
+        self.response.out.write(template.render(path,template_values))  
 
 
 
@@ -256,7 +259,6 @@ application = webapp.WSGIApplication([
     ('/hit',    HitPage),
     ('/stand',  StandPage),
     ('/bet',    BetPage),
-    ('/new',    NewPage),
     ('/test',   Test)], debug=True)
 
 

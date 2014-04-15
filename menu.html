@@ -1,0 +1,17 @@
+<html>
+  <head>
+  </head>
+  <body>
+    <div id="content">
+      <p><a href="/?g=0&id={{user_id}}">Create a new one</a></p>
+      {% if games|length > 0 %}
+        {% for game in games %}  
+          <p>
+            <a href="{{ game.game_link }}&id={{user_id}}">{{game.game_link}}</a> {{game.state}}
+          </p>
+        {% endfor %}
+      {% endif %}
+      
+    </div>
+  </body>
+</html>
