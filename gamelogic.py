@@ -134,9 +134,3 @@ class User():
   		self.game_result = 'dealer_win'
   	else:
   		self.game_result = 'user_win'
-
-
-
-
-
-

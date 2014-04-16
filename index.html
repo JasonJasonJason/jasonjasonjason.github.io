@@ -60,25 +60,30 @@
           xhr.send();
         };
 
-        
         onOpened = function() {
           sendMessage('/opened');
         };
         
         onMessage = function(m) {
           newState = JSON.parse(m.data);
-          console.log(newState);
-          state.dealer          = newState.dealer;
-          state.other_users     = newState.other_users;
-          state.current_user_id = newState.current_user_id;
-          state.me              = newState.me;
-          state.game_state      = newState.state;
-          state.end_message     = newState.end_message;
-          updateGame();
+          if(newState.error != null){
+          	showError(newState.error)
+          }
+          else{
+	        console.log(newState);
+	        state.dealer          = newState.dealer;
+	        state.other_users     = newState.other_users;
+	        state.current_user_id = newState.current_user_id;
+	        state.me              = newState.me;
+	        state.game_state      = newState.state;
+	        state.end_message     = newState.end_message;
+	        updateGame();
+          }
         }
         
         openChannel = function() {
           var token = '{{ token }}';
+          console.error('token received from server: ' + token);
           var channel = new goog.appengine.Channel(token);
           var handler = {
             'onopen': onOpened,
@@ -126,7 +131,7 @@
       var timerText;
       var endGameImage;
       var playAgainButton;
-      var serverURL = 'http://localhost:8080/';
+      var serverURL = 'http://blackjack-game.appspot.com/';
       var timerInterval = 300; //milliseconds per turn
       var fpsCount = 0;
 
@@ -437,6 +442,30 @@
         user.lostBet();
       }
 
+      var showError = function(message){
+
+      	endGameContainer   = new createjs.Container();
+        endGameContainer.addChild(endGameImage);
+
+        var text = new createjs.Text(message, "bold 42px Arial", "#444444");
+        text.set({
+          textAlign: 'center',
+          x:200,
+          y:15
+        });
+
+        endGameContainer.x = ($('#demoCanvas').width() - endGameImage.getBounds().width)/2;
+        endGameContainer.y = 240;
+
+        endGameContainer.addChild(text);
+        stage.addChild(endGameContainer);
+
+        createjs.Tween.get(endGameContainer).to({},1000,createjs.Ease.quadInOut).call(function(){
+            stage.removeChild(endGameContainer);
+          });
+
+      }
+
       var showEndGame = function(message, user){
         
         if(user.game_result == 'user_bust')
@@ -587,9 +616,7 @@
         if(!event.target.enabled)
           return;
 
-      	console.error('sending stand message for user_id: ' + state.me.user_id);
         sendMessage('/stand', 'user_id=' + state.me.user_id);
-        // endUserTurn();
       }
 
       var endUserTurn = function(event){

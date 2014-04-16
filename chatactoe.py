@@ -96,6 +96,10 @@ class GameUpdater():
         message = self.get_game_message_for_user(user)
         channel.send_message(user.user_id + self.game.game_key, message)
 
+  def send_user_update(self, user, message):
+    channel.send_message(user.user_id + self.game.game_key, message)
+    
+
 class GameFromRequest():
 
   game = None;
@@ -119,8 +123,6 @@ class OpenedPage(webapp.RequestHandler):
   def post(self):
     game = GameFromRequest(self.request).get_game()
     GameUpdater(game).send_update()
-    game.state = GAME_STATE.USER_TURN
-    game.put()
 
 class BetPage(webapp.RequestHandler):
   def post(self):
@@ -147,7 +149,7 @@ class StandPage(webapp.RequestHandler):
 def hitForUser(game, id):
     current_user = next((user for user in game.users if user.user_id == id), None) 
     if current_user.user_id != game.current_user_id:
-        logging.info('Not your turn!! current users turn: ' + str(game.current_user_id) + " and you...: " + str(current_user.user_id))
+        GameUpdater(game).send_user_update(current_user, json.dumps({'error':'It\'s not your turn!'}))
         return
 
     if len(current_user.getHand().cards) < 5:
@@ -158,9 +160,8 @@ def hitForUser(game, id):
 def standForUser(game, id):
     current_user = next((user for user in game.users if user.user_id == id), None)
     if current_user.user_id != game.current_user_id:
-        logging.info('Not your turn!! current users turn: ' + str(game.current_user_id) + " and you...: " + str(current_user.user_id))
+        GameUpdater(game).send_user_update(current_user, json.dumps({'error':'It\'s not your turn!'}))
         return
-
     
     onGameStateChanged(game)
     game.put()
@@ -170,6 +171,7 @@ def betForUser(game, id, betAmount):
     current_user = next((user for user in game.users if user.user_id == id), None)
     if current_user.user_id != game.current_user_id:
         logging.info('Not your turn!! current users turn: ' + str(game.current_user_id) + " and you...: " + str(current_user.user_id))
+        GameUpdater(game).send_user_update(current_user, json.dumps({'error':'It\'s not your turn!'}))
         return
 
     current_user.changeBet(betAmount);
@@ -263,6 +265,7 @@ application = webapp.WSGIApplication([
     ('/hit',    HitPage),
     ('/stand',  StandPage),
     ('/bet',    BetPage),
+    ('/opened', OpenedPage),
     ('/test',   Test)], debug=True)
 
 
