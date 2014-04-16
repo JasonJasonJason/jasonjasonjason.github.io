@@ -13,6 +13,7 @@ from google.appengine.api import channel
 from google.appengine.api import users
 from google.appengine.ext import ndb
 from google.appengine.ext import webapp
+from google.appengine.ext import deferred
 from google.appengine.ext.webapp import template
 from google.appengine.ext.webapp.util import run_wsgi_app
 
@@ -25,12 +26,25 @@ class Game(ndb.Model):
   """All the data we store for a game"""
   dealer          = ndb.PickleProperty()
   users           = ndb.PickleProperty()
+  waiting_users   = ndb.PickleProperty()
   game_key        = ndb.StringProperty()
   current_user_id = ndb.StringProperty()
   deck            = ndb.PickleProperty()
   state           = ndb.StringProperty()
   end_message     = ndb.StringProperty()
   game_link = ''
+
+  def addUser(self, newUser):
+    self.users.append(newUser)
+    self.state = GAME_STATE.USER_TURN
+    # onGameStateChanged(self)
+    # if self.state == GAME_STATE.NEW_GAME:
+    #     self.users.append(newUser)
+    # else:
+    #     if not self.waiting_users:
+    #         self.waiting_users = [newUser]
+    #     else:
+    #         self.waiting_users.append(newUser)
 
 def generateGameKey():
     return random.randrange(100)
@@ -48,8 +62,9 @@ def createNewGame(game_key, user_id):
                 game_key        = game_key,
                 dealer          = dealer,
                 users           = users,
+                waiting_users   = [],
                 deck            = deck,
-                current_user_id = '',
+                current_user_id = users[0].user_id,
                 state           = GAME_STATE.NEW_GAME,
                 end_message     = 'End string...123'
                 )
@@ -73,7 +88,6 @@ class GameUpdater():
       'state'           : self.game.state,
       'end_message'     : self.game.end_message
     }
-    # JSON.stringify({"foo":"lorem","bar":"ipsum"}, null, 4)
     logging.info('JSON game update: ' + str(json.dumps(gameUpdate, indent=4)))
     return json.dumps(gameUpdate)
 
@@ -81,42 +95,9 @@ class GameUpdater():
     for user in self.game.users:
         message = self.get_game_message_for_user(user)
         channel.send_message(user.user_id + self.game.game_key, message)
-    # if self.game.userO:
-    #   channel.send_message(self.game.userO.user_id() + self.game.key().id_or_name(), message)
-
-  def check_win(self):
-    return
-    # if self.game.moveX:
-      # O just moved, check for O wins
-      # wins = Wins().o_wins
-      # potential_winner = self.game.userO.user_id()
-    # else:
-      # X just moved, check for X wins
-      # wins = Wins().x_wins
-      # potential_winner = self.game.userX.user_id()
-      
-    # for win in wins:
-    #   if win.match(self.game.board):
-    #     self.game.winner = potential_winner
-    #     self.game.winning_board = win.pattern
-    #     return
-
-  def make_move(self, position, user):
-    return
-    # if position >= 0 and user == self.game.userX or user == self.game.userO:
-    #   if self.game.moveX == (user == self.game.userX):
-    #     boardList = list(self.game.board)
-    #     if (boardList[position] == ' '):
-    #       boardList[position] = 'X' if self.game.moveX else 'O'
-    #       self.game.board = "".join(boardList)
-    #       self.game.moveX = not self.game.moveX
-    #       self.check_win()
-    #       self.game.put()
-    #       self.send_update()
-    #       return
-
 
 class GameFromRequest():
+
   game = None;
 
   def __init__(self, request):
@@ -132,15 +113,6 @@ class GameFromRequest():
 class Test(webapp.RequestHandler):
   def get(self):
     self.response.write('Currently testing nothing. Have a nice day.')
-
-  class MovePage(webapp.RequestHandler):
-
-    def post(self):
-      game = GameFromRequest(self.request).get_game()
-      user = users.get_current_user()
-      if game and user:
-        id = int(self.request.get('i'))
-        GameUpdater(game).make_move(id, user)
 
 
 class OpenedPage(webapp.RequestHandler):
@@ -174,6 +146,10 @@ class StandPage(webapp.RequestHandler):
 
 def hitForUser(game, id):
     current_user = next((user for user in game.users if user.user_id == id), None) 
+    if current_user.user_id != game.current_user_id:
+        logging.info('Not your turn!! current users turn: ' + str(game.current_user_id) + " and you...: " + str(current_user.user_id))
+        return
+
     if len(current_user.getHand().cards) < 5:
         current_user.hitMe()
     game.put()
@@ -181,20 +157,47 @@ def hitForUser(game, id):
 
 def standForUser(game, id):
     current_user = next((user for user in game.users if user.user_id == id), None)
-    while game.dealer.getHand().score() < 18:
-        game.dealer.hitMe()
-    game.state = GAME_STATE.END_GAME
-    game.end_message = 'End of round'
-    current_user.setGameResult(game.dealer.getHand())
+    if current_user.user_id != game.current_user_id:
+        logging.info('Not your turn!! current users turn: ' + str(game.current_user_id) + " and you...: " + str(current_user.user_id))
+        return
 
+    
+    onGameStateChanged(game)
     game.put()
     GameUpdater(game).send_update()
 
 def betForUser(game, id, betAmount):
     current_user = next((user for user in game.users if user.user_id == id), None)
+    if current_user.user_id != game.current_user_id:
+        logging.info('Not your turn!! current users turn: ' + str(game.current_user_id) + " and you...: " + str(current_user.user_id))
+        return
+
     current_user.changeBet(betAmount);
     game.put()
     GameUpdater(game).send_update()
+    
+
+
+def onGameStateChanged(game):
+    
+    if game.state == GAME_STATE.USER_TURN:
+        for i in range(0, len(game.users)):
+            # All users set, end the game
+            if i == len(game.users)-1:
+                game.state = GAME_STATE.END_GAME
+
+                while game.dealer.getHand().score() < 18:
+                    game.dealer.hitMe()
+
+                for user in game.users:
+                    user.setGameResult(game.dealer.getHand())
+
+            # Proceed to next user
+            elif game.users[i].user_id == game.current_user_id:
+                logging.info("user's turn: " + str(game.users[i].user_id))
+                logging.info('len(game.users): '+str(len(game.users)))
+                game.current_user_id = game.users[i+1].user_id
+                return    
 
 
 class Page(webapp.RequestHandler):
@@ -204,7 +207,8 @@ class Page(webapp.RequestHandler):
     def sendGameInfo(self, game, user_id):
         game_link = 'http://localhost:8080/?g=' + game.game_key
         token = channel.create_channel(user_id + game.game_key)
-        template_values = {'token': token,
+        template_values = {
+                           'token': token,
                            'game_key': game.game_key,
                            'game_link': game_link
                           }
@@ -232,7 +236,7 @@ class MainPage(Page):
             
         if not game:
             game = Game.query(Game.game_key == game_key).fetch(1)[0]
-            game.users.append(User(game.deck, user_id))
+            game.addUser(User(game.deck, user_id))
             game.put()
 
         if game:
@@ -265,9 +269,9 @@ application = webapp.WSGIApplication([
 def main():
   run_wsgi_app(application)
 
+
 if __name__ == "__main__":
   main()
-
 
 # delete all previous games
 # games = Game.query().fetch()

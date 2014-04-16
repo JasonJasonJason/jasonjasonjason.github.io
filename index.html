@@ -159,6 +159,7 @@
 
 
       function init() {
+      	console.error('Starting game!');
         var data = {
           images: ["assets/cards.png"],
           frames: {width:73, height:98, count:53}
@@ -169,6 +170,10 @@
 
         endGameImage = new createjs.Bitmap('assets/end_game.png');
         playAgainButton = new createjs.Bitmap("assets/play_again.png");
+        
+        dealerHandSprites = new Array();
+        userHandSprites   = new Array();
+
 
         //Hit button
         var hitButton = new createjs.Bitmap('assets/hit_button.png');
@@ -277,13 +282,13 @@
       var onTick = function(event){
         fpsCount += 1;
 
-        if(fpsCount%30 == 0)
-          updateTimerText();
+        // if(fpsCount%30 == 0)
+        //   updateTimerText();
 
-        if(fpsCount >= timerInterval){
-          fpsCount = fpsCount % timerInterval;
-          nextTurn();
-        }
+        // if(fpsCount >= timerInterval){
+        //   fpsCount = fpsCount % timerInterval;
+        //   nextTurn();
+        // }
         
       }
 
@@ -307,8 +312,8 @@
 
         if(dealerCards){
           for(var i=0; i<dealerCards.length; i++){
-            newCard = newDealerCards[i];
-            card = dealerCards[i];
+            var newCard = newDealerCards[i];
+            var card = dealerCards[i];
             if(card.suite == newCard.suite && card.number == newCard.number)
               newCard.newCard = false;
           }
@@ -320,8 +325,8 @@
 
         if(userCards){
           for(var i=0; i<userCards.length; i++){
-            newCard = newUserCards[i];
-            card = userCards[i];
+            var newCard = newUserCards[i];
+            var card = userCards[i];
             if(card.suite == newCard.suite && card.number == newCard.number)
               newCard.newCard = false;
           }
@@ -582,6 +587,7 @@
         if(!event.target.enabled)
           return;
 
+      	console.error('sending stand message for user_id: ' + state.me.user_id);
         sendMessage('/stand', 'user_id=' + state.me.user_id);
         // endUserTurn();
       }
