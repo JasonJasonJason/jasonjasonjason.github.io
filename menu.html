@@ -3,7 +3,7 @@
   </head>
   <body>
     <div id="content">
-      <p><a href="/?g=0&id={{user_id}}">Create a new one</a></p>
+      <p><a href="/?g={{new_game_id}}&id={{user_id}}">Create a new one</a></p>
       {% if games|length > 0 %}
         {% for game in games %}  
           <p>

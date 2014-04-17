@@ -49,11 +49,10 @@ def generateGameKey():
 def generateUserId():
     return random.randrange(9999)
 
-def createNewGame(game_key, user_id):
+def createNewGame(game_key):
     deck = Deck()
     deck.shuffle()
     dealer = Dealer(deck)
-    logging.info('creating user with id: '+user_id)
     return Game(
                 game_key        = game_key,
                 dealer          = dealer,
@@ -126,17 +125,43 @@ class ClosedPage(webapp.RequestHandler):
         id = self.request.get('user_id')
         user = next((user for user in game.users if user.user_id == id), None) 
 
-        if user: 
+        if user != None: 
             logging.info('current: ' + game.current_user_id + ', sent: ' + user.user_id)
             if user.user_id == game.current_user_id:
                 onGameStateChanged(game)
-                game.put()
-                GameUpdater(game).send_update()
+            logging.error('user_id to delete from game: ' + id)
+            for user in game.users:
+                logging.error('user_ids in game: ' + str(user.user_id))
+
             game.users.remove(user)
+        else:
+            logging.error('closed page - could not find user with id: ' + id)
+            for user in game.users:
+                logging.error('user_ids in game: ' + str(user.user_id))
+
+        game.put()
 
         logging.info('length of users: ' + str(len(game.users)))
         if len(game.users) == 0:
             game.key.delete();
+
+class NewGamePage(webapp.RequestHandler):
+    def post(self):
+        logging.info('Starting a new game')
+        game = GameFromRequest(self.request).get_game()
+        users = game.users
+        game.key.delete()
+        game = createNewGame(game.game_key)
+        for user in users:
+            game.addUser(User(game.deck, user.user_id))
+        game.state = GAME_STATE.NEW_GAME
+        game.put()
+        GameUpdater(game).send_update()
+        time.sleep(1)
+        game.state = GAME_STATE.USER_TURN
+        GameUpdater(game).send_update()
+        game.put()
+
 
 class BetPage(webapp.RequestHandler):
   def post(self):
@@ -178,8 +203,6 @@ def standForUser(game, id):
         return
     
     onGameStateChanged(game)
-    game.put()
-    GameUpdater(game).send_update()
 
 def betForUser(game, id, betAmount):
     current_user = next((user for user in game.users if user.user_id == id), None)
@@ -191,29 +214,36 @@ def betForUser(game, id, betAmount):
     current_user.changeBet(betAmount);
     game.put()
     GameUpdater(game).send_update()
-    
 
+def finishGame(game):
+    game.state = GAME_STATE.END_GAME
 
-def onGameStateChanged(game):
+    while game.dealer.getHand().score() < 18:
+        game.dealer.hitMe()
+
+    for user in game.users:
+        user.setGameResult(game.dealer.getHand())
+
     
+def updateGameState(game):
     if game.state == GAME_STATE.USER_TURN:
         for i in range(0, len(game.users)):
             # All users set, end the game
             if i == len(game.users)-1:
-                game.state = GAME_STATE.END_GAME
-
-                while game.dealer.getHand().score() < 18:
-                    game.dealer.hitMe()
-
-                for user in game.users:
-                    user.setGameResult(game.dealer.getHand())
-
+                finishGame(game)
+                
             # Proceed to next user
             elif game.users[i].user_id == game.current_user_id:
                 logging.info("user's turn: " + str(game.users[i].user_id))
                 logging.info('len(game.users): '+str(len(game.users)))
                 game.current_user_id = game.users[i+1].user_id
-                return    
+                return
+
+def onGameStateChanged(game):
+    updateGameState(game)
+    game.put()
+    GameUpdater(game).send_update()
+
 
 
 class Page(webapp.RequestHandler):
@@ -221,12 +251,10 @@ class Page(webapp.RequestHandler):
         return
 
     def sendGameInfo(self, game, user_id):
-        game_link = 'http://localhost:8080/?g=' + game.game_key
         token = channel.create_channel(user_id + game.game_key)
         template_values = {
                            'token': token,
-                           'game_key': game.game_key,
-                           'game_link': game_link
+                           'game_key': game.game_key
                           }
         path = os.path.join(os.path.dirname(__file__), 'index.html')
 
@@ -243,24 +271,12 @@ class MainPage(Page):
             self.showGameMenu()
             return
 
-        game = None
-
-        if game_key == '0':
-            game_key = str(generateGameKey())
-            game = createNewGame(game_key, user_id)
+        games = Game.query(Game.game_key == game_key).fetch(1)
+        if games:
+            game = games[0]
+        else:
+            game = createNewGame(game_key)
             game.put()
-            self.redirect('/?g='+game_key + '&id='+user_id)
-            return
-            
-        if not game:
-            games = Game.query(Game.game_key == game_key).fetch(1)
-            if not games:
-                # give it a sec to get from database
-                time.sleep(2)
-                games = Game.query(Game.game_key == game_key).fetch(1)
-            if games:
-                game = games[0]
-
 
         if game:
             game.addUser(User(game.deck, user_id))
@@ -275,7 +291,7 @@ class MainPage(Page):
             game.game_link = 'http://localhost:8080/?g=' + game.game_key
 
         user_id = generateUserId()
-        template_values = { 'games': games, 'user_id':user_id }
+        template_values = { 'games': games, 'user_id':user_id, 'new_game_id':generateGameKey() }
         path = os.path.join(os.path.dirname(__file__), 'menu.html')
 
         self.response.out.write(template.render(path,template_values))  
@@ -289,6 +305,7 @@ application = webapp.WSGIApplication([
     ('/bet',    BetPage),
     ('/opened', OpenedPage),
     ('/closed', ClosedPage),
+    ('/again',  NewGamePage),
     ('/test',   Test)], debug=True)
 
 

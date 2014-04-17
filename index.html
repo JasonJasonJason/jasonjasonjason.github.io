@@ -17,9 +17,6 @@
     </div>
       <canvas id="demoCanvas" width="1200" height="800">
       </canvas>
-    <div id='this-game' float='top'>
-      Quick link to this game: <span id='this-game-link'><a href='{{ game_link }}'>{{ game_link }}</a></span>
-    </div>
 
     <script src="js/easeljs-0.7.1.min.js"></script>
       <script src="js/tweenjs-0.5.1.min.js"></script>
@@ -34,6 +31,8 @@
         updateGame = function() {
           //Update displays and logic based on received values from server
           if(state.game_state == 'new_game'){
+          	resetStage();
+          	resetHands();
             startGame();
           }
           if(state.game_state == 'end_game'){
@@ -139,6 +138,8 @@
       var timerText;
       var endGameImage;
       var playAgainButton;
+      var replayTimerText;
+      var replaySecondsLeft;
       var serverURL = 'http://blackjack-game.appspot.com/';
       var timerInterval = 300; //milliseconds per turn
       var fpsCount = 0;
@@ -283,20 +284,27 @@
         
         createjs.Ticker.setFPS(30);
         createjs.Ticker.addEventListener("tick", stage);
+		createjs.Ticker.addEventListener("tick", onTick);
 
         user = new Player();
         user.setOnCashChangedCallback(onUserCashChanged);
         user.onBetChanged(onUserBetChanged);
         updateTimerText();
-
-        // startGame();
       }
 
       var onTick = function(event){
         fpsCount += 1;
-
-        // if(fpsCount%30 == 0)
+         if(fpsCount%30 == 0){
+         	if(replaySecondsLeft > 0){
+         		replaySecondsLeft -= 1;
+         		updateReplayTimerText();
+         	}
         //   updateTimerText();
+	    }
+	    if(replaySecondsLeft == 0){
+	    	replaySecondsLeft = -1;
+	    	sendMessage('/again', 'user_id=' + state.me.user_id);
+	    }
 
         // if(fpsCount >= timerInterval){
         //   fpsCount = fpsCount % timerInterval;
@@ -314,6 +322,7 @@
         //$.get( serverURL + 'join', function( data ) {
         //   alert( "Joined Game: " + data.game_id +'\nNumber of players: '+data.number_of_players);
         //});
+
         var newDealerHand     = new Hand(state.dealer);
         var newUserHand       = new Hand(state.me.cards);
         var newDealerCards    = newDealerHand.getHand();
@@ -431,22 +440,18 @@
       }
 
       var userBust = function(){
-        // showEndGame('You went bust!', false);
         user.lostBet();
       }
 
       var dealerBust = function(){
-        // showEndGame('Dealer busted!', true);
         user.wonBet();
       }
 
       var userWin = function(){
-        // showEndGame('You win!', true);
         user.wonBet();
       }
 
       var userLost = function(){
-        // showEndGame('Dealer wins', false);
         user.lostBet();
       }
 
@@ -487,9 +492,19 @@
 
         didUserWin = (user.game_result == 'user_win' || user.game_result == 'dealer_bust');
 
-        endGameContainer   = new createjs.Container();
+        endGameContainer = new createjs.Container();
 
         endGameContainer.addChild(endGameImage);
+
+        replaySecondsLeft = 10;
+        replayTimerText = new createjs.Text('', "28px Arial", "#444444");
+        replayTimerText.set({
+          textAlign: 'center',
+          x:200,
+          y:100
+        });
+        updateReplayTimerText();
+        endGameContainer.addChild(replayTimerText);
 
         playAgainButton.addEventListener("click", onPlayAgainClicked);
         playAgainButton.x = (endGameImage.getBounds().width - playAgainButton.getBounds().width)/2;
@@ -548,15 +563,23 @@
         stage.update();
       }
 
+      var resetHands = function(){
+      	dealerCards = new Array();
+      	userCards   = new Array();
+      	dealerHandSprites = new Array();
+      	userHandSprites   = new Array();
+      	dealerHand = new Array();
+      	userHand   = new Array();
+      }
+
       var startGame = function(){
         takingInput = true;
-        updateScreen();
-        
         newGame();
+        updateScreen();
       }
 
       var newGame = function(){
-        createjs.Ticker.addEventListener("tick", onTick);
+
         fpsCount = 0;
         updateTimerText();
 
@@ -565,20 +588,10 @@
       }
 
       var onHitButtonClicked = function(event){
-        // sendMessage
         sendMessage('/hit', 'user_id=' + state.me.user_id);
-
-        // if(takingInput)
-        // {
-        //   userHand.hitMe();
-        //   addCardSprite(true);
-        //   fpsCount = 0;
-        //   updateTimerText();
-        // }
       }
 
       var onBetButtonClicked = function(betAmount){
-        // user.increaseBet(betAmount);
         sendMessage('/bet', 'user_id=' + state.me.user_id + '&bet_amount=' + betAmount);
       }
 
@@ -627,20 +640,16 @@
         sendMessage('/stand', 'user_id=' + state.me.user_id);
       }
 
+      
       var endUserTurn = function(event){
         disableButton(namedSprites['hitButton']);
         disableButton(namedSprites['standButton']);
         disableBetting();
-        disableTimer();
         if(takingInput)
         {
           var cardSprite = dealerHandSprites[0];
           flipCard(cardSprite);
         }
-      }
-
-      var disableTimer = function(){
-        createjs.Ticker.removeEventListener("tick", onTick);
       }
 
 
@@ -680,6 +689,12 @@
         timerText.set({
           text: Math.round((timerInterval-fpsCount)/30) + ' seconds'
         });
+      }
+
+      var updateReplayTimerText = function(){
+      	replayTimerText.set({
+      		text: ('Ending session in ' + replaySecondsLeft + 's')
+      	});
       }
 
       var onMainMenuButtonClicked = function(event){
