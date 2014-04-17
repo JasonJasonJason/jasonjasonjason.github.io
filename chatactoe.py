@@ -34,20 +34,24 @@ class Game(ndb.Model):
   end_message     = ndb.StringProperty()
   game_link = ''
 
-  def addUser(self, newUser):
-    if not self.users or len(self.users) == 0:
-        self.users = [newUser]
-        self.current_user_id = newUser.user_id
-    else:
-        self.users.append(newUser)
+  def addUser(self, newUserId):
+    if(self.state != GAME_STATE.NEW_GAME):
+        if not self.waiting_users:
+            self.waiting_users = []
+        self.waiting_users.append(User(self.deck, newUserId, True))
 
-    self.state = GAME_STATE.USER_TURN
+    elif not self.users or len(self.users) == 0:
+        self.users = [User(self.deck, newUserId, False)]
+        self.current_user_id = self.users[0].user_id
+
+    else:
+        self.users.append(User(self.deck, newUserId, False))
 
 def generateGameKey():
     return random.randrange(100)
 
 def generateUserId():
-    return random.randrange(9999)
+    return random.randrange(10)
 
 def createNewGame(game_key):
     deck = Deck()
@@ -63,6 +67,16 @@ def createNewGame(game_key):
                 state           = GAME_STATE.NEW_GAME,
                 end_message     = 'End string...123'
                 )
+def resetGame(game):
+    game.deck = Deck()
+    game.deck.shuffle()
+    game.dealer = Dealer(game.deck)
+    game.users = []
+    game.waiting_users = []
+    game.current_user_id = '0'
+    game.state = GAME_STATE.NEW_GAME
+    game.end_message = 'End string...123'
+    return game
 
 class GameUpdater():
   game = None
@@ -88,6 +102,9 @@ class GameUpdater():
 
   def send_update(self):
     for user in self.game.users:
+        message = self.get_game_message_for_user(user)
+        channel.send_message(user.user_id + self.game.game_key, message)
+    for user in self.game.waiting_users:
         message = self.get_game_message_for_user(user)
         channel.send_message(user.user_id + self.game.game_key, message)
 
@@ -123,21 +140,13 @@ class ClosedPage(webapp.RequestHandler):
         logging.info('closed!!!');
         game = GameFromRequest(self.request).get_game()
         id = self.request.get('user_id')
-        user = next((user for user in game.users if user.user_id == id), None) 
 
-        if user != None: 
-            logging.info('current: ' + game.current_user_id + ', sent: ' + user.user_id)
-            if user.user_id == game.current_user_id:
-                onGameStateChanged(game)
-            logging.error('user_id to delete from game: ' + id)
-            for user in game.users:
-                logging.error('user_ids in game: ' + str(user.user_id))
-
-            game.users.remove(user)
-        else:
-            logging.error('closed page - could not find user with id: ' + id)
-            for user in game.users:
-                logging.error('user_ids in game: ' + str(user.user_id))
+        for i in range(0, len(game.users)):
+            if id == game.users[i].user_id: #Find user
+                if game.users[i].user_id == game.current_user_id: #Move to next user, if current user
+                    onGameStateChanged(game)
+                game.users.pop(i) #Remove user
+                i = len(game.users)+1 # break from loop
 
         game.put()
 
@@ -147,17 +156,27 @@ class ClosedPage(webapp.RequestHandler):
 
 class NewGamePage(webapp.RequestHandler):
     def post(self):
-        logging.info('Starting a new game')
         game = GameFromRequest(self.request).get_game()
+        if game.state != GAME_STATE.END_GAME:
+            return
+
         users = game.users
-        game.key.delete()
-        game = createNewGame(game.game_key)
+        if game.waiting_users:
+            users.extend(game.waiting_users)
+
         for user in users:
-            game.addUser(User(game.deck, user.user_id))
+            user.waiting = False
+
+        game = resetGame(game)
+        for user in users:
+            game.addUser(user.user_id)
+
         game.state = GAME_STATE.NEW_GAME
         game.put()
         GameUpdater(game).send_update()
+
         time.sleep(1)
+
         game.state = GAME_STATE.USER_TURN
         GameUpdater(game).send_update()
         game.put()
@@ -207,13 +226,16 @@ def standForUser(game, id):
 def betForUser(game, id, betAmount):
     current_user = next((user for user in game.users if user.user_id == id), None)
     if current_user.user_id != game.current_user_id:
-        logging.info('Not your turn!! current users turn: ' + str(game.current_user_id) + " and you...: " + str(current_user.user_id))
         GameUpdater(game).send_user_update(current_user, json.dumps({'error':'It\'s not your turn!'}))
         return
 
-    current_user.changeBet(betAmount);
-    game.put()
-    GameUpdater(game).send_update()
+    try:
+        current_user.changeBet(betAmount);
+        game.put()
+        GameUpdater(game).send_update()
+    except ValueError, ex:
+        GameUpdater(game).send_user_update(current_user, json.dumps({'error':str(ex)}))
+
 
 def finishGame(game):
     game.state = GAME_STATE.END_GAME
@@ -244,8 +266,6 @@ def onGameStateChanged(game):
     game.put()
     GameUpdater(game).send_update()
 
-
-
 class Page(webapp.RequestHandler):
     def get(self):
         return
@@ -265,7 +285,7 @@ class MainPage(Page):
 
     def get(self):
         game_key = self.request.get('g')
-        user_id = self.request.get('id')
+        user_id = self.request.get('userID')
 
         if not game_key:
             self.showGameMenu()
@@ -274,12 +294,13 @@ class MainPage(Page):
         games = Game.query(Game.game_key == game_key).fetch(1)
         if games:
             game = games[0]
+            game.addUser(user_id)
         else:
             game = createNewGame(game_key)
-            game.put()
+            game.addUser(user_id)
+            game.state = GAME_STATE.USER_TURN
 
         if game:
-            game.addUser(User(game.deck, user_id))
             game.put()
             self.sendGameInfo(game, user_id);
         else:

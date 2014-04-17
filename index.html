@@ -27,6 +27,7 @@
         var state = {
           game_key: '{{ game_key }}'
         };
+        var channel;
 
         updateGame = function() {
           //Update displays and logic based on received values from server
@@ -71,11 +72,13 @@
           else{
 	        console.log(newState);
 	        state.dealer          = newState.dealer;
-	        state.other_users     = newState.other_users;
+	        state.users           = newState.users;
 	        state.current_user_id = newState.current_user_id;
 	        state.me              = newState.me;
 	        state.game_state      = newState.state;
 	        state.end_message     = newState.end_message;
+	        if(state.me.waiting)
+	        	userChoseToReplay = true
 	        updateGame();
           }
         }
@@ -83,7 +86,7 @@
         openChannel = function() {
           var token = '{{ token }}';
           console.error('token received from server: ' + token);
-          var channel = new goog.appengine.Channel(token);
+          channel = new goog.appengine.Channel(token);
           var handler = {
             'onopen': onOpened,
             'onmessage': onMessage,
@@ -140,6 +143,7 @@
       var playAgainButton;
       var replayTimerText;
       var replaySecondsLeft;
+      var userChoseToReplay = false;
       var serverURL = 'http://blackjack-game.appspot.com/';
       var timerInterval = 300; //milliseconds per turn
       var fpsCount = 0;
@@ -188,11 +192,10 @@
         dealerHandSprites = new Array();
         userHandSprites   = new Array();
 
-
         //Hit button
         var hitButton = new createjs.Bitmap('assets/hit_button.png');
         hitButton.enabled = true;
-        hitButton.x = 730;
+        hitButton.x = 410;
         hitButton.y = 612;
         hitButton.addEventListener("click", onHitButtonClicked);
         stage.addChild(hitButton);
@@ -200,7 +203,7 @@
         //Stand button
         var standButton = new createjs.Bitmap('assets/stand_button.png');
         standButton.enabled = true;
-        standButton.x = 900;
+        standButton.x = 250;
         standButton.y = 590;
         standButton.addEventListener("click", onStandButtonClicked);
         stage.addChild(standButton);
@@ -295,16 +298,25 @@
       var onTick = function(event){
         fpsCount += 1;
          if(fpsCount%30 == 0){
-         	if(replaySecondsLeft > 0){
+         	if(replaySecondsLeft > -2){
          		replaySecondsLeft -= 1;
          		updateReplayTimerText();
          	}
         //   updateTimerText();
+	        if(replaySecondsLeft == 0){
+		    	if(!userChoseToReplay){
+		    		window.location = "http://localhost:8080/";
+		    	}
+		    }
+		    if(replaySecondsLeft == -2){
+		    	if(userChoseToReplay){
+		    		userChoseToReplay = false;
+		    		if(!state.me.waiting && state.current_user_id == state.me.user_id)
+				    	sendMessage('/again', 'user_id=' + state.me.user_id);
+			    }
+		    }
 	    }
-	    if(replaySecondsLeft == 0){
-	    	replaySecondsLeft = -1;
-	    	sendMessage('/again', 'user_id=' + state.me.user_id);
-	    }
+
 
         // if(fpsCount >= timerInterval){
         //   fpsCount = fpsCount % timerInterval;
@@ -388,7 +400,49 @@
           }
         }
 
+        //Other user's display
+        var otherUserHandSprites = new Array();
+        for(var i=0; i<state.users.length; i++){
+        	var otherUserHand     = new Hand(state.users[i].cards);
+	        var otherUserCards    = otherUserHand.getHand();
+	        for(var j=0; j<otherUserCards.length; j++){
+	        	var newCard = getCardSprite(otherUserCards[j].number, otherUserCards[j].suite);
+	        	positionCard(newCard, i, j);
+		        otherUserHandSprites.push(newCard);
+	        }
+        }
+        for(var i=0; i<otherUserHandSprites.length; i++){
+        	stage.addChild(otherUserHandSprites[i]);
+        }
+
+        //Update balance amount
+        currentMoneyText.set({
+          text: ('Bank: $'+state.me.balance)
+        });
+        currentBetText.set({
+          text: ('Bet: $'+state.me.bet)
+        });
+
+        stage.update();
       }
+
+      var positionCard = function(cardSprite, playerNumber, cardNumber){
+      	var x = 0;
+      	var y = 0;
+      	switch(playerNumber){
+      		case 0: x=80;  y=380; break;
+      		case 1: x=310;  y=430; break;
+      		case 2: x=820;  y=430; break;
+      		case 3: x=1040; y=380; break;
+      	}
+      	y += cardNumber*5;
+      	x += cardNumber*20;
+      	cardSprite.x = x;
+      	cardSprite.y = y;
+      	cardSprite.scaleX = 1;
+      	showCardFace(cardSprite);
+      }
+
 
       var addDealerCard = function(card, cardNumber, shouldFlip){
         if(!takingInput)
@@ -408,51 +462,6 @@
         var newUserCard = getCardSprite(card.number, card.suite);
         userHandSprites.push(newUserCard);
         animateNewCard(newUserCard, 535+cardNumber*12, 425+cardNumber*6, shouldFlip);
-      }
-
-      // var checkEndGame = function(){
-      //   if(!takingInput)
-      //     return;
-
-      //   if(userHand.score() > 21)
-      //   {
-      //     endGame();
-      //   }
-      //   else if(userHand.score() == 21)
-      //   {
-      //     finishDealerHand();
-      //   }
-      // }
-
-      var endGame = function(){
-        if(!takingInput)
-          return;
-
-        takingInput = false;
-        if(userHand.score() > 21)
-          userBust();
-        else if(dealerHand.score() > 21)
-          dealerBust();
-        else if(userHand.score() > dealerHand.score())
-          userWin();
-        else
-          userLost();
-      }
-
-      var userBust = function(){
-        user.lostBet();
-      }
-
-      var dealerBust = function(){
-        user.wonBet();
-      }
-
-      var userWin = function(){
-        user.wonBet();
-      }
-
-      var userLost = function(){
-        user.lostBet();
       }
 
       var showError = function(message){
@@ -476,7 +485,6 @@
         createjs.Tween.get(endGameContainer).to({},1000,createjs.Ease.quadInOut).call(function(){
             stage.removeChild(endGameContainer);
           });
-
       }
 
       var showEndGame = function(message, user){
@@ -501,7 +509,7 @@
         replayTimerText.set({
           textAlign: 'center',
           x:200,
-          y:100
+          y:105
         });
         updateReplayTimerText();
         endGameContainer.addChild(replayTimerText);
@@ -540,8 +548,9 @@
       }
 
       var onPlayAgainClicked = function(event){
-        resetStage();
-        startGame();
+        
+        userChoseToReplay = true;
+        updateReplayTimerText();
       }
 
       var resetStage = function(){
@@ -574,17 +583,9 @@
 
       var startGame = function(){
         takingInput = true;
-        newGame();
-        updateScreen();
-      }
-
-      var newGame = function(){
-
         fpsCount = 0;
         updateTimerText();
-
-        dealerHandSprites = new Array();
-        userHandSprites   = new Array();
+        updateScreen();
       }
 
       var onHitButtonClicked = function(event){
@@ -636,7 +637,7 @@
       var onStandButtonClicked = function(event){
         if(!event.target.enabled)
           return;
-
+        console.log('stand button pressed');
         sendMessage('/stand', 'user_id=' + state.me.user_id);
       }
 
@@ -692,9 +693,17 @@
       }
 
       var updateReplayTimerText = function(){
-      	replayTimerText.set({
-      		text: ('Ending session in ' + replaySecondsLeft + 's')
-      	});
+      	if(userChoseToReplay){
+      		replayTimerText.set({
+	      		text: ('Starting game in ' + replaySecondsLeft + 's')
+	      	});
+      	}
+      	else{
+      		replayTimerText.set({
+	      		text: ('Ending session in ' + replaySecondsLeft + 's')
+	      	});
+      	}
+      	
       }
 
       var onMainMenuButtonClicked = function(event){
@@ -706,5 +715,13 @@
       }
 
     </script>
+
+    
+    <!--Chat system-->
+    <script type="text/javascript">
+		var QuickTalk_gameName = '<your game name>';
+	</script>
+	<script type="text/javascript" src="http://students.cse.tamu.edu/ctrinh/QuickTalk/master/quicktalk.js"></script>
+
   </body>
 </html>

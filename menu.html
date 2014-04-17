@@ -3,11 +3,11 @@
   </head>
   <body>
     <div id="content">
-      <p><a href="/?g={{new_game_id}}&id={{user_id}}">Create a new one</a></p>
+      <p><a href="/?g={{new_game_id}}&userID={{user_id}}">Create a new one</a></p>
       {% if games|length > 0 %}
         {% for game in games %}  
           <p>
-            <a href="{{ game.game_link }}&id={{user_id}}">{{game.game_link}}</a> {{game.state}}
+            <a href="{{ game.game_link }}&userID={{user_id}}">{{game.game_link}}</a> {{game.state}}
           </p>
         {% endfor %}
       {% endif %}

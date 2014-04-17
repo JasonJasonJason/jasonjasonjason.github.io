@@ -1,4 +1,7 @@
 import random
+import banklogic
+import json
+import logging
 
 class Card(object):
   def __init__(self, newSuite, newNumber):
@@ -34,31 +37,23 @@ class Hand(object):
     if len(self.cards) < 5 and self.score() < 21:
       self.cards.append(self.deck.deal());
 
-  def total(self):
-    aces = self.cards.count(11)
-    t = sum(self.cards)
-    if t > 21 and aces > 0:
-        while aces > 0 and t > 21:
-            t -= 10
-            aces -= 1
-    return t
-
   def score(self):
     score = 0
     aces = 0
 
     for card in self.cards:
       value = card.getValue()
-      if value == 1:
-        aces += 1
-      score += value
+      if value == 11:
+        aces  += 1
+        score += 10
+      else:
+        score += value
 
     while score > 20 and aces > 0:
       score -= 10
       aces -= 1
 
     return score
-
 
   def getDict(self):
     cardsDictList = []
@@ -100,37 +95,82 @@ class Dealer():
 
 
 class User():
-  def __init__(self, deck, new_id):
-    self.hand = Hand(deck)
+  def __init__(self, deck, new_id, waiting):
+    
     self.bet = 0
     self.game_result = ''
     self.user_id = new_id
+    self.waiting = waiting;
+    if not self.waiting:
+      self.hand = Hand(deck)
+    else:
+      self.hand = []
+    self.balance = self.getBalance()
 
   def getHand(self):
     return self.hand
 
   def getDict(self):
+    if self.hand:
+      cards_result = self.hand.getDict()
+    else:
+      cards_result = ''
+
     return {
-      'cards':self.hand.getDict(),
-      'bust' :(self.hand.score() > 21),
+      'cards': cards_result,
       'bet'  :self.bet,
       'game_result': self.game_result,
-      'user_id':self.user_id
+      'user_id':self.user_id,
+      'waiting':self.waiting,
+      'balance':self.balance
       }
 
   def hitMe(self):
+    logging.info('user hand score: ' + str(self.hand.score()))
     if(self.hand.score() < 21):
       self.hand.hitMe()
 
+  def getBalance(self):
+    # Call the banking API to get current balance
+    # Example: casino.curtiswendel.me:3000/api/getUser/1
+    try:
+      result = banklogic.getBalance(self.user_id)
+      if result:
+        return result['balance']
+    except Exception as e:
+      logging.error('Error while checking user balance...' + str(e))
+      pass
+    
+    return 0
+
+
   def changeBet(self, increaseAmount):
-    self.bet += increaseAmount
+    responseJSON = banklogic.requestFunds(self.user_id, increaseAmount)
+    if responseJSON:
+      logging.info('Raw data from \'RequestFunds\': ' + responseJSON)
+      response = json.loads(responseJSON)
+      if 'error' in response:
+        logging.error('Error received from \'RequestFunds\': ' + response['error'])
+        raise ValueError( "Insufficient funds!" )
+      else:
+        self.bet += increaseAmount
+        self.balance -= increaseAmount
+    else:
+      logging.error('no response from \'RequestFunds\'')
 
   def setGameResult(self, dealerHand):
-  	if self.hand.score() > 21:
-  		self.game_result = 'user_bust'
-  	elif dealerHand.score() > 21:
-  		self.game_result = 'dealer_bust'
-  	elif self.hand.score() <= dealerHand.score():
-  		self.game_result = 'dealer_win'
-  	else:
-  		self.game_result = 'user_win'
+    if self.hand.score() > 21:
+      self.game_result = 'user_bust'
+    elif dealerHand.score() > 21:
+      self.game_result = 'dealer_bust'
+    elif self.hand.score() <= dealerHand.score():
+      self.game_result = 'dealer_win'
+    else:
+      self.game_result = 'user_win'
+
+    if self.game_result == 'user_win' or self.game_result == 'dealer_bust':
+      # add in twice the amount of the bet, because the amount of the bet was deducted when they placed the bet.
+      # add in once to get to original amount, twice to actually add $
+      banklogic.addTransaction(self.user_id, 2*self.bet)
+    else:
+      banklogic.addTransaction(self.user_id, -self.bet)
