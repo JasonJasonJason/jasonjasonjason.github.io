@@ -5,7 +5,7 @@ import random
 random.seed()
 import re
 import sys
-from django.utils import simplejson
+import time
 import json
 from gamelogic import *
 from banklogic import *
@@ -35,16 +35,13 @@ class Game(ndb.Model):
   game_link = ''
 
   def addUser(self, newUser):
-    self.users.append(newUser)
+    if not self.users or len(self.users) == 0:
+        self.users = [newUser]
+        self.current_user_id = newUser.user_id
+    else:
+        self.users.append(newUser)
+
     self.state = GAME_STATE.USER_TURN
-    # onGameStateChanged(self)
-    # if self.state == GAME_STATE.NEW_GAME:
-    #     self.users.append(newUser)
-    # else:
-    #     if not self.waiting_users:
-    #         self.waiting_users = [newUser]
-    #     else:
-    #         self.waiting_users.append(newUser)
 
 def generateGameKey():
     return random.randrange(100)
@@ -57,14 +54,13 @@ def createNewGame(game_key, user_id):
     deck.shuffle()
     dealer = Dealer(deck)
     logging.info('creating user with id: '+user_id)
-    users = [User(deck, user_id)]
     return Game(
                 game_key        = game_key,
                 dealer          = dealer,
-                users           = users,
+                users           = [],
                 waiting_users   = [],
                 deck            = deck,
-                current_user_id = users[0].user_id,
+                current_user_id = '0',
                 state           = GAME_STATE.NEW_GAME,
                 end_message     = 'End string...123'
                 )
@@ -118,11 +114,29 @@ class Test(webapp.RequestHandler):
   def get(self):
     self.response.write('Currently testing nothing. Have a nice day.')
 
-
 class OpenedPage(webapp.RequestHandler):
-  def post(self):
-    game = GameFromRequest(self.request).get_game()
-    GameUpdater(game).send_update()
+    def post(self):
+        game = GameFromRequest(self.request).get_game()
+        GameUpdater(game).send_update()
+
+class ClosedPage(webapp.RequestHandler):
+    def post(self):
+        logging.info('closed!!!');
+        game = GameFromRequest(self.request).get_game()
+        id = self.request.get('user_id')
+        user = next((user for user in game.users if user.user_id == id), None) 
+
+        if user: 
+            logging.info('current: ' + game.current_user_id + ', sent: ' + user.user_id)
+            if user.user_id == game.current_user_id:
+                onGameStateChanged(game)
+                game.put()
+                GameUpdater(game).send_update()
+            game.users.remove(user)
+
+        logging.info('length of users: ' + str(len(game.users)))
+        if len(game.users) == 0:
+            game.key.delete();
 
 class BetPage(webapp.RequestHandler):
   def post(self):
@@ -235,13 +249,22 @@ class MainPage(Page):
             game_key = str(generateGameKey())
             game = createNewGame(game_key, user_id)
             game.put()
+            self.redirect('/?g='+game_key + '&id='+user_id)
+            return
             
         if not game:
-            game = Game.query(Game.game_key == game_key).fetch(1)[0]
-            game.addUser(User(game.deck, user_id))
-            game.put()
+            games = Game.query(Game.game_key == game_key).fetch(1)
+            if not games:
+                # give it a sec to get from database
+                time.sleep(2)
+                games = Game.query(Game.game_key == game_key).fetch(1)
+            if games:
+                game = games[0]
+
 
         if game:
+            game.addUser(User(game.deck, user_id))
+            game.put()
             self.sendGameInfo(game, user_id);
         else:
             self.response.out.write('No such game')
@@ -261,11 +284,11 @@ class MainPage(Page):
 
 application = webapp.WSGIApplication([
     ('/',       MainPage),
-    ('/opened', OpenedPage),
     ('/hit',    HitPage),
     ('/stand',  StandPage),
     ('/bet',    BetPage),
     ('/opened', OpenedPage),
+    ('/closed', ClosedPage),
     ('/test',   Test)], debug=True)
 
 

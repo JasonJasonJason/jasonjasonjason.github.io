@@ -104,6 +104,14 @@
         setTimeout(initialize, 550);
         setTimeout(init, 250);
 
+		function notifyServerClosedConnection() {
+			sendMessage('/closed', 'user_id=' + state.me.user_id);
+			return null;
+		}
+        $(document).ready(function() { 
+        	window.onbeforeunload = notifyServerClosedConnection;
+		});
+
     /*
       Notes: Pass the transactions/banking team hand:{"clubs", "three"}, {"spades", "ace"}, winAmount:51.5, 
     */
