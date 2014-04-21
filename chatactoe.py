@@ -35,23 +35,23 @@ class Game(ndb.Model):
   game_link = ''
 
   def addUser(self, newUserId):
-    if(self.state != GAME_STATE.NEW_GAME):
-        if not self.waiting_users:
-            self.waiting_users = []
-        self.waiting_users.append(User(self.deck, newUserId, True))
-
-    elif not self.users or len(self.users) == 0:
+    if not self.users or len(self.users) == 0:
         self.users = [User(self.deck, newUserId, False)]
         self.current_user_id = self.users[0].user_id
 
     else:
         self.users.append(User(self.deck, newUserId, False))
 
+  def addWaitingUser(self, newUserId):
+    if not self.waiting_users:
+        self.waiting_users = []
+    self.waiting_users.append(User(self.deck, newUserId, True))
+
 def generateGameKey():
     return random.randrange(100)
 
 def generateUserId():
-    return random.randrange(10)
+    return random.randrange(9)+1
 
 def createNewGame(game_key):
     deck = Deck()
@@ -64,7 +64,7 @@ def createNewGame(game_key):
                 waiting_users   = [],
                 deck            = deck,
                 current_user_id = '0',
-                state           = GAME_STATE.NEW_GAME,
+                state           = GAME_STATE.USER_TURN,
                 end_message     = 'End string...123'
                 )
 def resetGame(game):
@@ -74,7 +74,7 @@ def resetGame(game):
     game.users = []
     game.waiting_users = []
     game.current_user_id = '0'
-    game.state = GAME_STATE.NEW_GAME
+    game.state = GAME_STATE.USER_TURN
     game.end_message = 'End string...123'
     return game
 
@@ -101,8 +101,10 @@ class GameUpdater():
     return json.dumps(gameUpdate)
 
   def send_update(self):
+    logging.info('Sending updates!!')
     for user in self.game.users:
         message = self.get_game_message_for_user(user)
+        logging.info('user_id: ' + user.user_id + ' gameKey: ' + str(self.game.game_key))
         channel.send_message(user.user_id + self.game.game_key, message)
     for user in self.game.waiting_users:
         message = self.get_game_message_for_user(user)
@@ -119,7 +121,7 @@ class GameFromRequest():
   def __init__(self, request):
     user = users.get_current_user()
     game_key = request.get('g')
-    game_from_db = Game.query(Game.game_key == game_key).fetch(1)  
+    game_from_db = Game.query(Game.game_key == game_key).fetch(1)
     self.game = game_from_db[0]
 
   def get_game(self):
@@ -145,8 +147,8 @@ class ClosedPage(webapp.RequestHandler):
             if id == game.users[i].user_id: #Find user
                 if game.users[i].user_id == game.current_user_id: #Move to next user, if current user
                     onGameStateChanged(game)
-                game.users.pop(i) #Remove user
-                i = len(game.users)+1 # break from loop
+                game.users.pop(i)       #Remove user
+                i = len(game.users)+1   # break from loop
 
         game.put()
 
@@ -171,15 +173,11 @@ class NewGamePage(webapp.RequestHandler):
         for user in users:
             game.addUser(user.user_id)
 
-        game.state = GAME_STATE.NEW_GAME
-        game.put()
-        GameUpdater(game).send_update()
-
-        time.sleep(1)
-
         game.state = GAME_STATE.USER_TURN
-        GameUpdater(game).send_update()
         game.put()
+        time.sleep(1)
+        GameUpdater(game).send_update()
+        
 
 
 class BetPage(webapp.RequestHandler):
@@ -308,8 +306,12 @@ class MainPage(Page):
 
     def showGameMenu(self):
         games = Game.query().fetch()
+        index = 1
         for game in games:
             game.game_link = 'http://localhost:8080/?g=' + game.game_key
+            game.game_number = index
+            game.number_of_players = len(game.users) + len(game.waiting_users)
+            index += 1
 
         user_id = generateUserId()
         template_values = { 'games': games, 'user_id':user_id, 'new_game_id':generateGameKey() }

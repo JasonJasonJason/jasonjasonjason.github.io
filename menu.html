@@ -1,17 +1,54 @@
 <html>
   <head>
+    <style>
+      .container {
+        position: relative; 
+        font: bold 24px/45px Helvetica, Sans-Serif; 
+        color: white; 
+      }
+      #background { 
+         width: 100%;
+      }
+      #overlay {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 600px;
+        min-height: 250px;
+        margin-left: -300px;
+        margin-top: -400px;
+        background-color: #f1c40f;
+        text-align: center;
+        z-index: 10; /* keep on top of other elements on the page */
+        outline: 9999px solid rgba(0,0,0,0.5);
+      }
+    </style>
   </head>
   <body>
-    <div id="content">
-      <p><a href="/?g={{new_game_id}}&userID={{user_id}}">Create a new one</a></p>
-      {% if games|length > 0 %}
-        {% for game in games %}  
-          <p>
-            <a href="{{ game.game_link }}&userID={{user_id}}">{{game.game_link}}</a> {{game.state}}
-          </p>
-        {% endfor %}
-      {% endif %}
-      
+    <div class="container">
+        <img id="background" src="assets/background.png"/>
+        <div id="overlay">
+          <h2>Open games</h2>
+          {% if games|length > 0 %}
+            {% for game in games %}  
+              {% if game.number_of_players > 4 %}
+                <p>Table {{game.game_number}} - {{game.number_of_players}} players [FULL]</p>  
+              {% else %}
+                {% if game.number_of_players > 1 %}
+                  <p><a href="{{ game.game_link }}&userID={{user_id}}">Table {{game.game_number}}</a> - {{game.number_of_players}} players</p>  
+                {% else %}
+                  {% if game.number_of_players == 1 %}
+                    <p><a href="{{ game.game_link }}&userID={{user_id}}">Table {{game.game_number}}</a> - {{game.number_of_players}} player</p>  
+                  {%endif%}
+                {%endif%}
+              {%endif%}
+              
+            {% endfor %}
+          {% endif %}
+          <p><a href="/?g={{new_game_id}}&userID={{user_id}}">Create a new game</a></p>
+        </div>
+        <h2><span>A Movie in the Park:</span><br /><span>Kung Fu Panda</span></h2>
     </div>
+
   </body>
 </html>

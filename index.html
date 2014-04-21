@@ -27,28 +27,32 @@
         var state = {
           game_key: '{{ game_key }}'
         };
-        var channel;
+        var end_game = false;
 
         updateGame = function() {
           //Update displays and logic based on received values from server
           if(state.game_state == 'new_game'){
-          	resetStage();
-          	resetHands();
-            startGame();
+          	// resetStage();
+          	// resetHands();
+            // startGame();
+            console.error('NEW GAME ERROR');
           }
           if(state.game_state == 'end_game'){
+            end_game = true;
             updateScreen();
             endUserTurn();
             setTimeout(showEndGame, 1200, state.end_message, state.me);
           }
           if(state.game_state == 'user_turn'){
+            if(end_game){
+              resetStage();
+              resetHands();
+              fpsCount = 0;
+              end_game = false;
+            }
             updateScreen();
           }
         };
-        
-        isMyMove = function() {
-          //Check if I can move
-        }
 
         sendMessage = function(path, opt_param) {
           path += '?g=' + state.game_key;
@@ -61,11 +65,14 @@
         };
 
         onOpened = function() {
+          console.log('onOpened');
           sendMessage('/opened');
         };
         
         onMessage = function(m) {
+          console.log('onMessage!!');
           newState = JSON.parse(m.data);
+          console.log('data received: ' + JSON.stringify(newState));
           if(newState.error != null){
           	showError(newState.error)
           }
@@ -85,8 +92,7 @@
         
         openChannel = function() {
           var token = '{{ token }}';
-          console.error('token received from server: ' + token);
-          channel = new goog.appengine.Channel(token);
+          var channel = new goog.appengine.Channel(token);
           var handler = {
             'onopen': onOpened,
             'onmessage': onMessage,
@@ -101,7 +107,7 @@
         
         initialize = function() {
           openChannel();
-        }      
+        }
 
         setTimeout(initialize, 550);
         setTimeout(init, 250);
@@ -177,7 +183,6 @@
 
 
       function init() {
-      	console.error('Starting game!');
         var data = {
           images: ["assets/cards.png"],
           frames: {width:73, height:98, count:53}
@@ -331,10 +336,6 @@
 
       var updateScreen = function(){
 
-        //$.get( serverURL + 'join', function( data ) {
-        //   alert( "Joined Game: " + data.game_id +'\nNumber of players: '+data.number_of_players);
-        //});
-
         var newDealerHand     = new Hand(state.dealer);
         var newUserHand       = new Hand(state.me.cards);
         var newDealerCards    = newDealerHand.getHand();
@@ -392,12 +393,15 @@
           animationDelay += 500;
 
         for(var i=0; i<userCards.length; i++) {
-          if(userCards[i].newCard){
+          console.log('adding user card?');
             if(userCards[i].newCard){
+              console.log('YES!');
               setTimeout(addCardSprite, animationDelay, userCards[i], i, true);
               animationDelay += 250;
             }
-          }
+            else{
+              console.log('No :-(');
+            }
         }
 
         //Other user's display
@@ -424,6 +428,13 @@
         });
 
         stage.update();
+
+        //Timer text
+        updateTimerText();
+
+        enableBetting();
+        enableButton(namedSprites['hitButton']);
+        enableButton(namedSprites['standButton']);
       }
 
       var positionCard = function(cardSprite, playerNumber, cardNumber){
@@ -584,7 +595,7 @@
       var startGame = function(){
         takingInput = true;
         fpsCount = 0;
-        updateTimerText();
+        
         updateScreen();
       }
 
@@ -703,11 +714,10 @@
 	      		text: ('Ending session in ' + replaySecondsLeft + 's')
 	      	});
       	}
-      	
       }
 
       var onMainMenuButtonClicked = function(event){
-        window.location = "http://casino.curtiswendel.me/gamefloor.html";
+        window.location = "http://casino.curtiswendel.me/gamefloor.php";
       }
 
       var onResumeGameButtonClicked = function(event){
