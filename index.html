@@ -31,12 +31,6 @@
 
         updateGame = function() {
           //Update displays and logic based on received values from server
-          if(state.game_state == 'new_game'){
-          	// resetStage();
-          	// resetHands();
-            // startGame();
-            console.error('NEW GAME ERROR');
-          }
           if(state.game_state == 'end_game'){
             end_game = true;
             updateScreen();
@@ -144,6 +138,7 @@
       var mainMenuButton;
       var currentMoneyText;
       var currentBetText;
+      var userTurnArrow;
       var timerText;
       var endGameImage;
       var playAgainButton;
@@ -196,6 +191,11 @@
         
         dealerHandSprites = new Array();
         userHandSprites   = new Array();
+
+        //User turn arrow
+        userTurnArrow = new createjs.Bitmap('assets/turn_arrow.png');
+        userTurnArrow.visible = false;
+        stage.addChild(userTurnArrow);
 
         //Hit button
         var hitButton = new createjs.Bitmap('assets/hit_button.png');
@@ -432,9 +432,64 @@
         //Timer text
         updateTimerText();
 
+        // //User turn arrow
+        // if (state.current_user_id == state.me.user_id){
+        //   userTurnArrow.visible = true;
+        //   // positionTurnArrow(2);
+        // } else {
+        //   //loop thru other users, find their index, position arrow
+        // }
+        
+        userTurnArrow.visible = true;
+        animateTurnArrow();
+
         enableBetting();
         enableButton(namedSprites['hitButton']);
         enableButton(namedSprites['standButton']);
+      }
+
+      var getCurrentPlayerIndex = function(){
+        if (state.current_user_id == state.me.user_id){
+          return 2;
+        }
+
+        for(var i=0; i<state.users.length; i+=1){
+          if(state.current_user_id == state.users[i].user_id){
+            if(i > 1){
+              return i+1;
+            } else {
+              return i;
+            }
+          }
+        }
+
+        return -1;
+      }
+
+      var positionTurnArrow = function(){
+
+        var index = getCurrentPlayerIndex();
+        var x=0;
+        var y=0;
+        switch(index){
+          case -1: x=-500; break;
+          case 0:  x=90;   y=280; break;
+          case 1:  x=320;  y=325; break;
+          case 2:  x=570;  y=280; break;
+          case 3:  x=830;  y=325; break;
+          case 4:  x=1050; y=280; break;
+        }
+        return {'x':x,'y':y};
+      }
+
+      var animateTurnArrow = function(){
+        if(!userTurnArrow.visible)
+          return;
+        var position = positionTurnArrow();
+        if(userTurnArrow.y < position.y)
+          createjs.Tween.get(userTurnArrow).to({x:position.x, y:position.y + 20},800,createjs.Ease.quadInOut).call(animateTurnArrow);
+        else
+          createjs.Tween.get(userTurnArrow).to({x:position.x, y:position.y - 20},800,createjs.Ease.quadInOut).call(animateTurnArrow);
       }
 
       var positionCard = function(cardSprite, playerNumber, cardNumber){
@@ -657,6 +712,7 @@
         disableButton(namedSprites['hitButton']);
         disableButton(namedSprites['standButton']);
         disableBetting();
+        userTurnArrow.visible = false;
         if(takingInput)
         {
           var cardSprite = dealerHandSprites[0];
