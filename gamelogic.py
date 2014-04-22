@@ -95,16 +95,12 @@ class Dealer():
 
 
 class User():
-  def __init__(self, deck, new_id, waiting):
+  def __init__(self, deck, new_id):
     
     self.bet = 0
     self.game_result = ''
     self.user_id = new_id
-    self.waiting = waiting;
-    if not self.waiting:
-      self.hand = Hand(deck)
-    else:
-      self.hand = []
+    self.hand = Hand(deck)
     self.getAPIInfo()
 
   def getAPIInfo(self):
@@ -137,7 +133,6 @@ class User():
       'bet'  :self.bet,
       'game_result': self.game_result,
       'user_id':self.user_id,
-      'waiting':self.waiting,
       'balance':self.balance,
       'name':self.name
     }

@@ -26,7 +26,6 @@ class Game(ndb.Model):
     """All the data we store for a game"""
     dealer          = ndb.PickleProperty()
     users           = ndb.PickleProperty()
-    waiting_users   = ndb.PickleProperty()
     game_key        = ndb.StringProperty()
     current_user_id = ndb.StringProperty()
     deck            = ndb.PickleProperty()
@@ -36,26 +35,24 @@ class Game(ndb.Model):
 
 
     def addUser(self, newUserId):
+        users_list = [user.getDict() for user in self.users]
+        logging.error('Adding user to game.')
+        logging.error('Adding userID: ' + newUserId)
+        logging.error('current users: ' + str(users_list))
+
         if not self.users or len(self.users) == 0:
-            self.users = [User(self.deck, newUserId, False)]
+            self.users = [User(self.deck, newUserId)]
             self.current_user_id = self.users[0].user_id
 
         else:
-            self.users.append(User(self.deck, newUserId, False))
-
-    def addWaitingUser(self, newUserId):
-        if not self.waiting_users:
-            self.waiting_users = []
-            self.waiting_users.append(User(self.deck, newUserId, True))
+            self.users.append(User(self.deck, newUserId))
 
     def printGame(self):
         users_list = [user.getDict() for user in self.users]
-        waiting_users_list = [user.getDict() for user in self.waiting_users]
 
         gameUpdate = {
             'dealer'          : self.dealer.getDict(),
             'users'           : users_list,
-            'waiting_users'   : waiting_users_list,
             'current_user_id' : self.current_user_id,
             'state'           : self.state,
             'end_message'     : self.end_message
@@ -77,21 +74,20 @@ def createNewGame(game_key):
                 game_key        = game_key,
                 dealer          = dealer,
                 users           = [],
-                waiting_users   = [],
                 deck            = deck,
                 current_user_id = '0',
                 state           = GAME_STATE.USER_TURN,
-                end_message     = 'End string...123'
+                end_message     = 'Waiting for next round'
                 )
+
 def resetGame(game):
     game.deck = Deck()
     game.deck.shuffle()
     game.dealer = Dealer(game.deck)
     game.users = []
-    game.waiting_users = []
     game.current_user_id = '0'
     game.state = GAME_STATE.USER_TURN
-    game.end_message = 'End string...123'
+    game.end_message = 'Waiting for next round'
     return game
 
 class GameUpdater():
@@ -122,9 +118,6 @@ class GameUpdater():
         message = self.get_game_message_for_user(user)
         logging.info('user_id: ' + user.user_id + ' gameKey: ' + str(self.game.game_key))
         channel.send_message(user.user_id + self.game.game_key, message)
-    for user in self.game.waiting_users:
-        message = self.get_game_message_for_user(user)
-        channel.send_message(user.user_id + self.game.game_key, message)
 
   def send_user_update(self, user, message):
     channel.send_message(user.user_id + self.game.game_key, message)
@@ -150,7 +143,10 @@ class Test(webapp.RequestHandler):
 
 class OpenedPage(webapp.RequestHandler):
     def post(self):
+        user_id = self.request.get('user_id')
         game = GameFromRequest(self.request).get_game()
+        game.addUser(user_id)
+        game.put()
         GameUpdater(game).send_update()
 
 class ClosedPage(webapp.RequestHandler):
@@ -168,11 +164,6 @@ class ClosedPage(webapp.RequestHandler):
                 game.users.pop(i)       # Remove user
                 break
 
-        for i in range(0, len(game.waiting_users)):
-            if id == game.waiting_users[i]:
-                game.waiting_users.pop(i)
-                break
-
         game.put()
 
         logging.info('length of users: ' + str(len(game.users)))
@@ -186,11 +177,6 @@ class NewGamePage(webapp.RequestHandler):
             return
 
         users = game.users
-        if game.waiting_users:
-            users.extend(game.waiting_users)
-
-        for user in users:
-            user.waiting = False
 
         game = resetGame(game)
         for user in users:
@@ -200,8 +186,6 @@ class NewGamePage(webapp.RequestHandler):
         game.put()
         time.sleep(1)
         GameUpdater(game).send_update()
-        
-
 
 class BetPage(webapp.RequestHandler):
   def post(self):
@@ -295,7 +279,8 @@ class Page(webapp.RequestHandler):
         token = channel.create_channel(user_id + game.game_key)
         template_values = {
                            'token': token,
-                           'game_key': game.game_key
+                           'game_key': game.game_key,
+                           'user_id' : user_id
                           }
         path = os.path.join(os.path.dirname(__file__), 'index.html')
 
@@ -315,14 +300,14 @@ class MainPage(Page):
         games = Game.query(Game.game_key == game_key).fetch(1)
         if games:
             game = games[0]
-            game.addUser(user_id)
+            # game.addUser(user_id)
         else:
             game = createNewGame(game_key)
-            game.addUser(user_id)
-            game.state = GAME_STATE.USER_TURN
+            game.put()
+            # game.addUser(user_id)
+            # game.state = GAME_STATE.USER_TURN
 
         if game:
-            game.put()
             self.sendGameInfo(game, user_id);
         else:
             self.response.out.write('No such game')
@@ -333,8 +318,9 @@ class MainPage(Page):
         for game in games:
             game.game_link = 'http://localhost:8080/?g=' + game.game_key
             game.game_number = index
-            game.number_of_players = len(game.users) + len(game.waiting_users)
-            index += 1
+            game.number_of_players = len(game.users)
+            if game.number_of_players > 0:
+                index += 1
 
         user_id = generateUserId()
         template_values = { 'games': games, 'user_id':user_id, 'new_game_id':generateGameKey() }
@@ -342,6 +328,10 @@ class MainPage(Page):
 
         self.response.out.write(template.render(path,template_values))  
 
+        #Delete all games with 0 players that are left over
+        for game in games:
+            if game.number_of_players < 1:
+                game.key.delete()
 
 
 application = webapp.WSGIApplication([

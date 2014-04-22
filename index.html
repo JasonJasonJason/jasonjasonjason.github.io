@@ -25,7 +25,8 @@
 
       <script type='text/javascript'>
         var state = {
-          game_key: '{{ game_key }}'
+          game_key: '{{ game_key }}',
+          user_id : '{{ user_id }}'
         };
         var end_game = false;
 
@@ -33,7 +34,7 @@
           //Update displays and logic based on received values from server
           if(state.game_state == 'end_game'){
             end_game = true;
-            updateScreen();
+            // updateScreen();
             endUserTurn();
             setTimeout(showEndGame, 1200, state.end_message, state.me);
           }
@@ -60,7 +61,7 @@
 
         onOpened = function() {
           console.log('onOpened');
-          sendMessage('/opened');
+          sendMessage('/opened', 'user_id=' + state.user_id);
         };
         
         onMessage = function(m) {
@@ -78,8 +79,6 @@
 	        state.me              = newState.me;
 	        state.game_state      = newState.state;
 	        state.end_message     = newState.end_message;
-	        if(state.me.waiting)
-	        	userChoseToReplay = true
 	        updateGame();
           }
         }
@@ -102,9 +101,11 @@
         initialize = function() {
           openChannel();
         }
-
-        setTimeout(initialize, 550);
-        setTimeout(init, 250);
+        $(function() {
+          setTimeout(initialize, 550);
+          setTimeout(init, 250);
+        });
+        
 
 		function notifyServerClosedConnection() {
 			sendMessage('/closed', 'user_id=' + state.me.user_id);
@@ -286,6 +287,8 @@
           stage.addChild(menuBlock);
         });
         stage.addChild(menuButton);
+
+        animateTurnArrow();
         
         createjs.Ticker.setFPS(30);
         createjs.Ticker.addEventListener("tick", stage);
@@ -307,13 +310,13 @@
         //   updateTimerText();
 	        if(replaySecondsLeft == 0){
 		    	if(!userChoseToReplay){
-		    		window.location = "http://localhost:8080/";
+		    		window.location = "http://blackjack-game.appspot.com/";
 		    	}
 		    }
 		    if(replaySecondsLeft == -2){
 		    	if(userChoseToReplay){
 		    		userChoseToReplay = false;
-		    		if(!state.me.waiting && state.current_user_id == state.me.user_id)
+		    		if(state.current_user_id == state.me.user_id)
 				    	sendMessage('/again', 'user_id=' + state.me.user_id);
 			    }
 		    }
@@ -444,7 +447,6 @@
         
         //User turn arrow
         userTurnArrow.visible = true;
-        animateTurnArrow();
 
         enableBetting();
         enableButton(namedSprites['hitButton']);
@@ -452,16 +454,18 @@
       }
 
       var getCurrentPlayerIndex = function(){
-        if (state.current_user_id == state.me.user_id){
+        if (state.me && state.current_user_id == state.me.user_id){
           return 2;
         }
 
-        for(var i=0; i<state.users.length; i+=1){
-          if(state.current_user_id == state.users[i].user_id){
-            if(i > 1){
-              return i+1;
-            } else {
-              return i;
+        if(state.users){
+          for(var i=0; i<state.users.length; i+=1){
+            if(state.current_user_id == state.users[i].user_id){
+              if(i > 1){
+                return i+1;
+              } else {
+                return i;
+              }
             }
           }
         }
@@ -497,8 +501,7 @@
       }
 
       var animateTurnArrow = function(){
-        if(!userTurnArrow.visible)
-          return;
+        
         var position = positionTurnArrow();
         if(userTurnArrow.y < position.y)
           createjs.Tween.get(userTurnArrow).to({x:position.x, y:position.y + 20},800,createjs.Ease.quadInOut).call(animateTurnArrow);
@@ -724,8 +727,10 @@
         userTurnArrow.visible = false;
         if(takingInput)
         {
-          var cardSprite = dealerHandSprites[0];
-          flipCard(cardSprite);
+          if(dealerHandSprites.length > 0){
+            var cardSprite = dealerHandSprites[0];
+            flipCard(cardSprite);
+          }
         }
       }
 
@@ -771,7 +776,7 @@
       var updateReplayTimerText = function(){
       	if(userChoseToReplay){
       		replayTimerText.set({
-	      		text: ('Starting game in ' + replaySecondsLeft + 's')
+	      		text: ('Starting game shortly...')
 	      	});
       	}
       	else{
