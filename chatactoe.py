@@ -9,6 +9,7 @@ import time
 import json
 from gamelogic import *
 from banklogic import *
+from pprint import pprint
 from google.appengine.api import channel
 from google.appengine.api import users
 from google.appengine.ext import ndb
@@ -22,29 +23,45 @@ class GAME_STATE:
   USER_TURN = 'user_turn'
 
 class Game(ndb.Model):
-  """All the data we store for a game"""
-  dealer          = ndb.PickleProperty()
-  users           = ndb.PickleProperty()
-  waiting_users   = ndb.PickleProperty()
-  game_key        = ndb.StringProperty()
-  current_user_id = ndb.StringProperty()
-  deck            = ndb.PickleProperty()
-  state           = ndb.StringProperty()
-  end_message     = ndb.StringProperty()
-  game_link = ''
+    """All the data we store for a game"""
+    dealer          = ndb.PickleProperty()
+    users           = ndb.PickleProperty()
+    waiting_users   = ndb.PickleProperty()
+    game_key        = ndb.StringProperty()
+    current_user_id = ndb.StringProperty()
+    deck            = ndb.PickleProperty()
+    state           = ndb.StringProperty()
+    end_message     = ndb.StringProperty()
+    game_link       = ''
 
-  def addUser(self, newUserId):
-    if not self.users or len(self.users) == 0:
-        self.users = [User(self.deck, newUserId, False)]
-        self.current_user_id = self.users[0].user_id
 
-    else:
-        self.users.append(User(self.deck, newUserId, False))
+    def addUser(self, newUserId):
+        if not self.users or len(self.users) == 0:
+            self.users = [User(self.deck, newUserId, False)]
+            self.current_user_id = self.users[0].user_id
 
-  def addWaitingUser(self, newUserId):
-    if not self.waiting_users:
-        self.waiting_users = []
-    self.waiting_users.append(User(self.deck, newUserId, True))
+        else:
+            self.users.append(User(self.deck, newUserId, False))
+
+    def addWaitingUser(self, newUserId):
+        if not self.waiting_users:
+            self.waiting_users = []
+            self.waiting_users.append(User(self.deck, newUserId, True))
+
+    def printGame(self):
+        users_list = [user.getDict() for user in self.users]
+        waiting_users_list = [user.getDict() for user in self.waiting_users]
+
+        gameUpdate = {
+            'dealer'          : self.dealer.getDict(),
+            'users'           : users_list,
+            'waiting_users'   : waiting_users_list,
+            'current_user_id' : self.current_user_id,
+            'state'           : self.state,
+            'end_message'     : self.end_message
+        }
+        logging.info('Game information: ' + str(json.dumps(gameUpdate, indent=4)))
+
 
 def generateGameKey():
     return random.randrange(100)
@@ -138,16 +155,23 @@ class OpenedPage(webapp.RequestHandler):
 
 class ClosedPage(webapp.RequestHandler):
     def post(self):
-        logging.info('closed!!!');
         game = GameFromRequest(self.request).get_game()
         id = self.request.get('user_id')
+        logging.info('Closed page! user_id to remove from users: ' + str(id))
+        game.printGame()
 
         for i in range(0, len(game.users)):
+            logging.info('loop iteration. i: ' + str(i) + ' len(game.users): ' + str(len(game.users)))
             if id == game.users[i].user_id: #Find user
                 if game.users[i].user_id == game.current_user_id: #Move to next user, if current user
                     onGameStateChanged(game)
-                game.users.pop(i)       #Remove user
-                i = len(game.users)+1   # break from loop
+                game.users.pop(i)       # Remove user
+                break
+
+        for i in range(0, len(game.waiting_users)):
+            if id == game.waiting_users[i]:
+                game.waiting_users.pop(i)
+                break
 
         game.put()
 

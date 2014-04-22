@@ -114,9 +114,6 @@
         	window.onbeforeunload = notifyServerClosedConnection;
 		});
 
-    /*
-      Notes: Pass the transactions/banking team hand:{"clubs", "three"}, {"spades", "ace"}, winAmount:51.5, 
-    */
       var circle = new createjs.Shape();
       var stage;
       var endGameContainer;
@@ -292,7 +289,7 @@
         
         createjs.Ticker.setFPS(30);
         createjs.Ticker.addEventListener("tick", stage);
-		createjs.Ticker.addEventListener("tick", onTick);
+    		createjs.Ticker.addEventListener("tick", onTick);
 
         user = new Player();
         user.setOnCashChangedCallback(onUserCashChanged);
@@ -406,6 +403,7 @@
 
         //Other user's display
         var otherUserHandSprites = new Array();
+        
         for(var i=0; i<state.users.length; i++){
         	var otherUserHand     = new Hand(state.users[i].cards);
 	        var otherUserCards    = otherUserHand.getHand();
@@ -417,6 +415,18 @@
         }
         for(var i=0; i<otherUserHandSprites.length; i++){
         	stage.addChild(otherUserHandSprites[i]);
+        }
+
+        //Other user's names
+        var otherUserNames = new Array();
+
+        for(var i=0; i<state.users.length; i++){
+          var text = new createjs.Text(state.users.name, "14px Arial", "#FFFFFF");
+          text.set({
+            textAlign: 'center',
+            x:200,
+            y:15
+          });
         }
 
         //Update balance amount
@@ -431,15 +441,8 @@
 
         //Timer text
         updateTimerText();
-
-        // //User turn arrow
-        // if (state.current_user_id == state.me.user_id){
-        //   userTurnArrow.visible = true;
-        //   // positionTurnArrow(2);
-        // } else {
-        //   //loop thru other users, find their index, position arrow
-        // }
         
+        //User turn arrow
         userTurnArrow.visible = true;
         animateTurnArrow();
 
@@ -469,15 +472,26 @@
       var positionTurnArrow = function(){
 
         var index = getCurrentPlayerIndex();
+        var position = positionForUser(index);
+        position.x -= 30;
+        position.y -= 135;
+        if(index == 2)
+          position.y -= 65;
+
+        return position;
+      }
+
+      var positionForUser = function(index){
         var x=0;
         var y=0;
         switch(index){
-          case -1: x=-500; break;
-          case 0:  x=90;   y=280; break;
-          case 1:  x=320;  y=325; break;
-          case 2:  x=570;  y=280; break;
-          case 3:  x=830;  y=325; break;
-          case 4:  x=1050; y=280; break;
+          case -1: x=-500; y=-500; break;
+
+          case 0:  x=120;  y=410; break;
+          case 1:  x=350;  y=460; break;
+          case 2:  x=600;  y=480; break;
+          case 3:  x=860;  y=460; break;
+          case 4:  x=1080; y=410; break;
         }
         return {'x':x,'y':y};
       }
@@ -495,16 +509,11 @@
       var positionCard = function(cardSprite, playerNumber, cardNumber){
       	var x = 0;
       	var y = 0;
-      	switch(playerNumber){
-      		case 0: x=80;  y=380; break;
-      		case 1: x=310;  y=430; break;
-      		case 2: x=820;  y=430; break;
-      		case 3: x=1040; y=380; break;
-      	}
-      	y += cardNumber*5;
-      	x += cardNumber*20;
-      	cardSprite.x = x;
-      	cardSprite.y = y;
+        var position = positionForUser(playerNumber);
+      	position.y += -30 + cardNumber*5;
+        position.x += -40 + cardNumber*20;
+      	cardSprite.x = position.x;
+      	cardSprite.y = position.y;
       	cardSprite.scaleX = 1;
       	showCardFace(cardSprite);
       }
@@ -575,7 +584,7 @@
         replayTimerText.set({
           textAlign: 'center',
           x:200,
-          y:105
+          y:100
         });
         updateReplayTimerText();
         endGameContainer.addChild(replayTimerText);
@@ -600,7 +609,7 @@
         detailText.set({
           textAlign: 'center',
           x: 200,
-          y: 80
+          y: 65
         });
 
         endGameContainer.x = ($('#demoCanvas').width() - endGameImage.getBounds().width)/2;

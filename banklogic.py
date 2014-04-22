@@ -2,7 +2,7 @@ import urllib
 import urllib2
 import json
 
-def getBalance(user_id):
+def getUser(user_id):
 	url = 'http://casino.curtiswendel.me:3000/api/getUser/' + str(user_id)
 	response = urllib2.urlopen(url)
 	return json.load(response)  

@@ -105,10 +105,26 @@ class User():
       self.hand = Hand(deck)
     else:
       self.hand = []
-    self.balance = self.getBalance()
+    self.getAPIInfo()
+
+  def getAPIInfo(self):
+    # Call the banking API to get current balance
+    # Example: casino.curtiswendel.me:3000/api/getUser/1
+    self.balance = 0
+    self.name = 'User'
+    try:
+      result = banklogic.getUser(self.user_id)
+      if result:
+        self.balance = result['balance']
+        self.name = result['screenName']
+    except Exception as e:
+      logging.error('Error while checking user balance...' + str(e))
+      pass
+
 
   def getHand(self):
     return self.hand
+
 
   def getDict(self):
     if self.hand:
@@ -122,26 +138,14 @@ class User():
       'game_result': self.game_result,
       'user_id':self.user_id,
       'waiting':self.waiting,
-      'balance':self.balance
-      }
+      'balance':self.balance,
+      'name':self.name
+    }
 
   def hitMe(self):
     logging.info('user hand score: ' + str(self.hand.score()))
     if(self.hand.score() < 21):
       self.hand.hitMe()
-
-  def getBalance(self):
-    # Call the banking API to get current balance
-    # Example: casino.curtiswendel.me:3000/api/getUser/1
-    try:
-      result = banklogic.getBalance(self.user_id)
-      if result:
-        return result['balance']
-    except Exception as e:
-      logging.error('Error while checking user balance...' + str(e))
-      pass
-    
-    return 0
 
 
   def changeBet(self, increaseAmount):
