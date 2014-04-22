@@ -23,7 +23,7 @@ var Hand = function (newCards){
 var Player = function (){
 
     var userId = 0;
-    var cash = 2000.00;
+    var cash = 0.0;
     var hand = null;
     var betAmount = 0.0;
     var onCashChangedCallback;

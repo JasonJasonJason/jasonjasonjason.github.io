@@ -158,13 +158,15 @@ class ClosedPage(webapp.RequestHandler):
 
         for i in range(0, len(game.users)):
             logging.info('loop iteration. i: ' + str(i) + ' len(game.users): ' + str(len(game.users)))
-            if id == game.users[i].user_id: #Find user
+            if id == game.users[i].user_id: # Find user
                 if game.users[i].user_id == game.current_user_id: #Move to next user, if current user
                     onGameStateChanged(game)
                 game.users.pop(i)       # Remove user
-                break
+                i = 9999
+                # break
 
         game.put()
+        GameUpdater(game).send_update()
 
         logging.info('length of users: ' + str(len(game.users)))
         if len(game.users) == 0:
@@ -211,8 +213,12 @@ class StandPage(webapp.RequestHandler):
 
 def hitForUser(game, id):
     current_user = next((user for user in game.users if user.user_id == id), None) 
+
     if current_user.user_id != game.current_user_id:
         GameUpdater(game).send_user_update(current_user, json.dumps({'error':'It\'s not your turn!'}))
+        return
+    if game.state == GAME_STATE.END_GAME:
+        GameUpdater(game).send_user_update(current_user, json.dumps({'error':'Cannot bet now!'}))
         return
 
     if len(current_user.getHand().cards) < 5:
@@ -227,6 +233,7 @@ def standForUser(game, id):
         return
     
     onGameStateChanged(game)
+    GameUpdater(game).send_update()
 
 def betForUser(game, id, betAmount):
     current_user = next((user for user in game.users if user.user_id == id), None)
@@ -251,25 +258,24 @@ def finishGame(game):
     for user in game.users:
         user.setGameResult(game.dealer.getHand())
 
+
     
 def updateGameState(game):
-    if game.state == GAME_STATE.USER_TURN:
-        for i in range(0, len(game.users)):
-            # All users set, end the game
-            if i == len(game.users)-1:
-                finishGame(game)
-                
-            # Proceed to next user
-            elif game.users[i].user_id == game.current_user_id:
-                logging.info("user's turn: " + str(game.users[i].user_id))
-                logging.info('len(game.users): '+str(len(game.users)))
-                game.current_user_id = game.users[i+1].user_id
-                return
+    for i in range(0, len(game.users)):
+        # All users set, end the game
+        if game.state == GAME_STATE.USER_TURN and i == len(game.users)-1:
+            finishGame(game)
+            
+        # Proceed to next user
+        elif game.users[i % len(game.users)].user_id == game.current_user_id:
+            logging.info("user's turn: " + str(game.users[i % len(game.users)].user_id))
+            logging.info('len(game.users): '+str(len(game.users)))
+            game.current_user_id = game.users[(i+1)  % len(game.users)].user_id
+            return
 
 def onGameStateChanged(game):
     updateGameState(game)
     game.put()
-    GameUpdater(game).send_update()
 
 class Page(webapp.RequestHandler):
     def get(self):
@@ -292,27 +298,29 @@ class MainPage(Page):
     def get(self):
         game_key = self.request.get('g')
         user_id = self.request.get('userID')
+        if not user_id:
+            if self.request.arguments():
+                user_id = self.request.arguments()[0]
+            else:
+                user_id = 1
 
         if not game_key:
-            self.showGameMenu()
+            self.showGameMenu(user_id)
             return
 
         games = Game.query(Game.game_key == game_key).fetch(1)
         if games:
             game = games[0]
-            # game.addUser(user_id)
         else:
             game = createNewGame(game_key)
             game.put()
-            # game.addUser(user_id)
-            # game.state = GAME_STATE.USER_TURN
 
         if game:
             self.sendGameInfo(game, user_id);
         else:
             self.response.out.write('No such game')
 
-    def showGameMenu(self):
+    def showGameMenu(self, user_id):
         games = Game.query().fetch()
         index = 1
         for game in games:
@@ -322,7 +330,6 @@ class MainPage(Page):
             if game.number_of_players > 0:
                 index += 1
 
-        user_id = generateUserId()
         template_values = { 'games': games, 'user_id':user_id, 'new_game_id':generateGameKey() }
         path = os.path.join(os.path.dirname(__file__), 'menu.html')
 
