@@ -18,7 +18,7 @@ from google.appengine.ext import deferred
 from google.appengine.ext.webapp import template
 from google.appengine.ext.webapp.util import run_wsgi_app
 
-DEPLOY = False
+DEPLOY = True
 
 class GAME_STATE:
   END_GAME  = 'end_game'
@@ -37,6 +37,11 @@ class Game(ndb.Model):
 
 
     def addUser(self, newUserId):
+        
+        for user in self.users: #Already added to game!!
+            if user.user_id == newUserId:
+                return user
+
         users_list = [user.getDict() for user in self.users]
         user = User(self.deck, newUserId)
 

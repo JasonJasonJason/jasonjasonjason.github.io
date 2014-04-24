@@ -48,7 +48,9 @@
 
       onOpened = function() {
         console.log('onOpened');
-        sendMessage('/opened', 'user_id=' + state.user_id);
+        setTimeout(function(){
+          sendMessage('/opened', 'user_id=' + state.user_id);
+        }, 500);
       };
 
       onMessage = function(m) {
