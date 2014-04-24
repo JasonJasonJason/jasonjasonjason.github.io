@@ -15,10 +15,11 @@
       <img src="assets/play_again.png" />
       <img src="assets/cards.png" />
     </div>
-      <canvas id="demoCanvas" width="1200" height="800">
-      </canvas>
 
-    <script src="js/easeljs-0.7.1.min.js"></script>
+    <canvas id="demoCanvas" width="1200" height="800">
+    </canvas>
+
+      <script src="js/easeljs-0.7.1.min.js"></script>
       <script src="js/tweenjs-0.5.1.min.js"></script>
       <script src="js/jquery1.7.2.js"></script>
       <script src="js/game.js"></script>
@@ -42,7 +43,6 @@
             if(end_game){
               resetStage();
               resetHands();
-              fpsCount = 0;
               end_game = false;
             }
             updateScreen();
@@ -139,10 +139,6 @@
       var currentBetText;
       var userTurnArrow;
       var endGameImage;
-      var playAgainButton;
-
-      var timerInterval = 300; //milliseconds per turn
-      var fpsCount = 0;
 
       var Cards = {
         Ace: 1,  Two: 2,  Three: 3, Four: 4,  
@@ -182,7 +178,6 @@
         stage.addChild(new createjs.Bitmap("assets/background.png"));
 
         endGameImage = new createjs.Bitmap('assets/end_game.png');
-        playAgainButton = new createjs.Bitmap("assets/play_again.png");
         
         dealerHandSprites = new Array();
         userHandSprites   = new Array();
@@ -251,12 +246,7 @@
           x:15,
           y:90
         });
-        // timerText = new createjs.Text('', '18px Arial', '#444444');
-        // timerText.set({
-        //   x:15,
-        //   y:115
-        // });
-        // infoBlock.addChild(timerText);
+        
         infoBlock.addChild(currentBetText);
         infoBlock.addChild(currentMoneyText);
         
@@ -292,41 +282,10 @@
         
         createjs.Ticker.setFPS(30);
         createjs.Ticker.addEventListener("tick", stage);
-    		createjs.Ticker.addEventListener("tick", onTick);
 
         user = new Player();
         user.setOnCashChangedCallback(onUserCashChanged);
         user.onBetChanged(onUserBetChanged);
-        // updateTimerText();
-      }
-
-      var onTick = function(event){
-     //    fpsCount += 1;
-     //     if(fpsCount%30 == 0){
-     //     	if(replaySecondsLeft > -2){
-     //     		replaySecondsLeft -= 1;
-     //     	}
-
-	    //     if(replaySecondsLeft == 0){
-		   //  	if(!userChoseToReplay){
-		   //  		window.location = "http://blackjack-game.appspot.com/";
-		   //  	}
-		   //  }
-		   //  if(replaySecondsLeft == -2){
-		   //  	if(userChoseToReplay){
-		   //  		userChoseToReplay = false;
-		   //  		if(state.current_user_id == state.me.user_id)
-				 //    	sendMessage('/again', 'user_id=' + state.me.user_id);
-			  //   }
-		   //  }
-	    // }
-
-
-        // if(fpsCount >= timerInterval){
-        //   fpsCount = fpsCount % timerInterval;
-        //   nextTurn();
-        // }
-        
       }
 
       var nextTurn = function(){
@@ -471,9 +430,6 @@
           text: ('Bet: $'+state.me.bet)
         });
 
-        //Timer text
-        // updateTimerText();
-        
         //User turn arrow
         userTurnArrow.visible = true;
 
@@ -624,9 +580,6 @@
         });
         endGameContainer.addChild(text);
 
-        // playAgainButton.addEventListener("click", onPlayAgainClicked);
-        playAgainButton.x = (endGameImage.getBounds().width - playAgainButton.getBounds().width)/2;
-        playAgainButton.y = 140;
 
         var text = new createjs.Text(message, "bold 42px Arial", "#444444");
         text.set({
@@ -652,7 +605,6 @@
 
         endGameContainer.addChild(text);
         endGameContainer.addChild(detailText);
-        // endGameContainer.addChild(playAgainButton);
 
         stage.addChild(endGameContainer);
       }
@@ -689,8 +641,6 @@
 
       var startGame = function(){
         takingInput = true;
-        fpsCount = 0;
-        
         updateScreen();
       }
 
