@@ -34,7 +34,7 @@
           //Update displays and logic based on received values from server
           if(state.game_state == 'end_game'){
             end_game = true;
-            // updateScreen();
+            updateScreen();
             endUserTurn();
             setTimeout(showEndGame, 1200, state.end_message, state.me);
           }
@@ -140,10 +140,7 @@
       var userTurnArrow;
       var endGameImage;
       var playAgainButton;
-      var replayTimerText;
-      var replaySecondsLeft;
-      var userChoseToReplay = false;
-      var serverURL = 'http://blackjack-game.appspot.com/';
+
       var timerInterval = 300; //milliseconds per turn
       var fpsCount = 0;
 
@@ -304,26 +301,25 @@
       }
 
       var onTick = function(event){
-        fpsCount += 1;
-         if(fpsCount%30 == 0){
-         	if(replaySecondsLeft > -2){
-         		replaySecondsLeft -= 1;
-         		updateReplayTimerText();
-         	}
+     //    fpsCount += 1;
+     //     if(fpsCount%30 == 0){
+     //     	if(replaySecondsLeft > -2){
+     //     		replaySecondsLeft -= 1;
+     //     	}
 
-	        if(replaySecondsLeft == 0){
-		    	if(!userChoseToReplay){
-		    		window.location = "http://blackjack-game.appspot.com/";
-		    	}
-		    }
-		    if(replaySecondsLeft == -2){
-		    	if(userChoseToReplay){
-		    		userChoseToReplay = false;
-		    		if(state.current_user_id == state.me.user_id)
-				    	sendMessage('/again', 'user_id=' + state.me.user_id);
-			    }
-		    }
-	    }
+	    //     if(replaySecondsLeft == 0){
+		   //  	if(!userChoseToReplay){
+		   //  		window.location = "http://blackjack-game.appspot.com/";
+		   //  	}
+		   //  }
+		   //  if(replaySecondsLeft == -2){
+		   //  	if(userChoseToReplay){
+		   //  		userChoseToReplay = false;
+		   //  		if(state.current_user_id == state.me.user_id)
+				 //    	sendMessage('/again', 'user_id=' + state.me.user_id);
+			  //   }
+		   //  }
+	    // }
 
 
         // if(fpsCount >= timerInterval){
@@ -419,7 +415,10 @@
 	        var otherUserCards    = otherUserHand.getHand();
 	        for(var j=0; j<otherUserCards.length; j++){
 	        	var newCard = getCardSprite(otherUserCards[j].number, otherUserCards[j].suite);
-	        	positionCard(newCard, i, j);
+            if(i > 1)
+  	        	positionCard(newCard, i+1, j);
+            else
+              positionCard(newCard, i, j);
 		        otherUserHandSprites.push(newCard);
 	        }
         }
@@ -437,7 +436,10 @@
         otherUserNameSprites = new Array();
 
         for(var i=0; i<state.users.length; i++){
-          var position = positionForUser(i);
+          if( i>1)
+            var position = positionForUser(i+1);
+          else
+            var position = positionForUser(i);
           var text = new createjs.Text(state.users[i].name, "14px Arial", "#FFFFFF");
           text.set({
             textAlign: 'center',
@@ -469,8 +471,6 @@
           text: ('Bet: $'+state.me.bet)
         });
 
-        stage.update();
-
         //Timer text
         // updateTimerText();
         
@@ -480,6 +480,8 @@
         enableBetting();
         enableButton(namedSprites['hitButton']);
         enableButton(namedSprites['standButton']);
+
+        stage.update();
       }
 
       var getCurrentPlayerIndex = function(){
@@ -520,11 +522,11 @@
         switch(index){
           case -1: x=-500; y=-500; break;
 
-          case 0:  x=100;  y=390; break;
+          case 0:  x=120;  y=410; break;
           case 1:  x=350;  y=460; break;
           case 2:  x=600;  y=480; break;
           case 3:  x=860;  y=460; break;
-          case 4:  x=1080; y=390; break;
+          case 4:  x=1080; y=410; break;
         }
         return {'x':x,'y':y};
       }
@@ -542,8 +544,8 @@
       	var x = 0;
       	var y = 0;
         var position = positionForUser(playerNumber);
-      	position.y += -30 + cardNumber*5;
-        position.x += -40 + cardNumber*20;
+      	position.y += -50 + cardNumber*5;
+        position.x += -50 + cardNumber*20;
       	cardSprite.x = position.x;
       	cardSprite.y = position.y;
       	cardSprite.scaleX = 1;
@@ -614,17 +616,15 @@
 
         endGameContainer.addChild(endGameImage);
 
-        replaySecondsLeft = 10;
-        replayTimerText = new createjs.Text('', "28px Arial", "#444444");
-        replayTimerText.set({
+        var text = new createjs.Text('Starting game shortly...', "28px Arial", "#444444");
+        text.set({
           textAlign: 'center',
           x:200,
           y:100
         });
-        updateReplayTimerText();
-        endGameContainer.addChild(replayTimerText);
+        endGameContainer.addChild(text);
 
-        playAgainButton.addEventListener("click", onPlayAgainClicked);
+        // playAgainButton.addEventListener("click", onPlayAgainClicked);
         playAgainButton.x = (endGameImage.getBounds().width - playAgainButton.getBounds().width)/2;
         playAgainButton.y = 140;
 
@@ -652,15 +652,9 @@
 
         endGameContainer.addChild(text);
         endGameContainer.addChild(detailText);
-        endGameContainer.addChild(playAgainButton);
+        // endGameContainer.addChild(playAgainButton);
 
         stage.addChild(endGameContainer);
-      }
-
-      var onPlayAgainClicked = function(event){
-        
-        userChoseToReplay = true;
-        updateReplayTimerText();
       }
 
       var resetStage = function(){
@@ -801,19 +795,7 @@
         });
       }
 
-      var updateReplayTimerText = function(){
-      	if(userChoseToReplay){
-      		replayTimerText.set({
-	      		text: ('Starting game shortly...')
-	      	});
-      	}
-      	else{
-      		replayTimerText.set({
-	      		text: ('Ending session in ' + replaySecondsLeft + 's')
-	      	});
-      	}
-      }
-
+      
       var onMainMenuButtonClicked = function(event){
         window.location = "http://casino.curtiswendel.me/gamefloor.php";
       }
@@ -826,10 +808,16 @@
 
     
     <!--Chat system-->
-    <script type="text/javascript">
-		var QuickTalk_gameName = '<your game name>';
-	</script>
-	<script type="text/javascript" src="http://students.cse.tamu.edu/ctrinh/QuickTalk/master/quicktalk.js"></script>
+    {% if deploy %}
+      <script type="text/javascript">
+      var QuickTalk_gameName = 'BlackJack';
+      </script>
+      <script type="text/javascript" src="http://students.cse.tamu.edu/ctrinh/QuickTalk/master/quicktalk.js"></script>
+    {% else %}
+      <script type="text/javascript">
+        console.log("Debug mode -- not using chat system")
+      </script>
+    {% endif %}
 
   </body>
 </html>

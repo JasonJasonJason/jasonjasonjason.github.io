@@ -46,6 +46,10 @@
             {% endfor %}
           {% endif %}
           <p><a href="/?g={{new_game_id}}&userID={{user_id}}">Create a new game</a></p>
+          {% if deploy %}
+          {% else %}
+          <p><a href="/clear?userID={{user_id}}">Delete all games</a></p>
+          {% endif %}
         </div>
         <h2><span>A Movie in the Park:</span><br /><span>Kung Fu Panda</span></h2>
     </div>

@@ -18,6 +18,8 @@ from google.appengine.ext import deferred
 from google.appengine.ext.webapp import template
 from google.appengine.ext.webapp.util import run_wsgi_app
 
+DEPLOY = False
+
 class GAME_STATE:
   END_GAME  = 'end_game'
   USER_TURN = 'user_turn'
@@ -36,16 +38,15 @@ class Game(ndb.Model):
 
     def addUser(self, newUserId):
         users_list = [user.getDict() for user in self.users]
-        logging.error('Adding user to game.')
-        logging.error('Adding userID: ' + newUserId)
-        logging.error('current users: ' + str(users_list))
+        user = User(self.deck, newUserId)
 
         if not self.users or len(self.users) == 0:
-            self.users = [User(self.deck, newUserId)]
-            self.current_user_id = self.users[0].user_id
+            self.users = []
+            self.current_user_id = user.user_id
 
-        else:
-            self.users.append(User(self.deck, newUserId))
+        self.users.append(user)
+
+        return user
 
     def printGame(self):
         users_list = [user.getDict() for user in self.users]
@@ -131,6 +132,9 @@ class GameFromRequest():
     user = users.get_current_user()
     game_key = request.get('g')
     game_from_db = Game.query(Game.game_key == game_key).fetch(1)
+    if not game_from_db or len(game_from_db) == 0:
+        time.sleep(1)
+        game_from_db = Game.query(Game.game_key == game_key).fetch(1)
     self.game = game_from_db[0]
 
   def get_game(self):
@@ -145,32 +149,71 @@ class OpenedPage(webapp.RequestHandler):
     def post(self):
         user_id = self.request.get('user_id')
         game = GameFromRequest(self.request).get_game()
-        game.addUser(user_id)
+        new_user = game.addUser(user_id)
         game.put()
-        GameUpdater(game).send_update()
+
+        if game.state == GAME_STATE.END_GAME:
+            GameUpdater(game).send_user_update(new_user, json.dumps({'error':'Waiting to start...'}))
+        else:
+            GameUpdater(game).send_update()
 
 class ClosedPage(webapp.RequestHandler):
     def post(self):
         game = GameFromRequest(self.request).get_game()
         id = self.request.get('user_id')
         logging.info('Closed page! user_id to remove from users: ' + str(id))
-        game.printGame()
+        logging.info('[before] number of users: ' + str(len(game.users)))
+        # game.printGame()
 
+        
+        user = None
+
+        # Find current user
         for i in range(0, len(game.users)):
-            logging.info('loop iteration. i: ' + str(i) + ' len(game.users): ' + str(len(game.users)))
             if id == game.users[i].user_id: # Find user
-                if game.users[i].user_id == game.current_user_id: #Move to next user, if current user
-                    onGameStateChanged(game)
-                game.users.pop(i)       # Remove user
-                i = 9999
-                # break
+                user = game.users[i]
 
+        if user == None:
+            logging.error('[ClosedPage]. Could not find user in game.users! Doing nothing.')
+            return
+
+        
+        if game.state == GAME_STATE.END_GAME:
+            # game has already ended. Let people leave freely, don't update anyone.
+            logging.info('[end_game] removing user from game')
+            game.users.remove(user)
+            game.put()
+        else:
+            logging.info('[user_turn] not removing user from game')
+            if user.user_id == game.current_user_id:
+                # user is current user...
+                # delete user, move to next user.
+                # if last user, end game.
+                updateGameState(game)
+                game.users.remove(user)
+                onGameStateChanged(game)
+
+            else: 
+                # user is not current user
+                # delete user, send update, do nothing about it tho
+                game.users.remove(user)
+                game.put()
+                GameUpdater(game).send_update()
+
+        logging.info('[after] number of users: ' + str(len(game.users)))
         game.put()
-        GameUpdater(game).send_update()
 
-        logging.info('length of users: ' + str(len(game.users)))
         if len(game.users) == 0:
             game.key.delete();
+
+        
+class ClearPage(webapp.RequestHandler):
+    def get(self):
+        games = Game.query().fetch()
+        for game in games:
+            game.key.delete()
+        self.redirect('/?' + self.request.get('userID'))
+        
 
 class NewGamePage(webapp.RequestHandler):
     def post(self):
@@ -232,8 +275,8 @@ def standForUser(game, id):
         GameUpdater(game).send_user_update(current_user, json.dumps({'error':'It\'s not your turn!'}))
         return
     
+    updateGameState(game)
     onGameStateChanged(game)
-    GameUpdater(game).send_update()
 
 def betForUser(game, id, betAmount):
     current_user = next((user for user in game.users if user.user_id == id), None)
@@ -267,15 +310,33 @@ def updateGameState(game):
             finishGame(game)
             
         # Proceed to next user
-        elif game.users[i % len(game.users)].user_id == game.current_user_id:
-            logging.info("user's turn: " + str(game.users[i % len(game.users)].user_id))
+        elif game.users[i].user_id == game.current_user_id:
+            logging.info("user's turn: " + str(game.users[i].user_id))
             logging.info('len(game.users): '+str(len(game.users)))
-            game.current_user_id = game.users[(i+1)  % len(game.users)].user_id
+            game.current_user_id = game.users[(i+1) % len(game.users)].user_id
             return
 
 def onGameStateChanged(game):
-    updateGameState(game)
     game.put()
+    GameUpdater(game).send_update()
+
+    if game.state == GAME_STATE.END_GAME:
+
+        ctx = ndb.get_context()
+        ctx.clear_cache()
+        time.sleep(5)
+            
+        new_game = Game.query(Game.game_key == game.game_key).fetch(1)[0]
+        users = new_game.users
+        new_game = resetGame (new_game)
+
+        for user in users:
+            new_game.addUser(user.user_id)
+
+        new_game.state = GAME_STATE.USER_TURN
+        new_game.put()
+        GameUpdater(new_game).send_update()
+
 
 class Page(webapp.RequestHandler):
     def get(self):
@@ -286,7 +347,8 @@ class Page(webapp.RequestHandler):
         template_values = {
                            'token': token,
                            'game_key': game.game_key,
-                           'user_id' : user_id
+                           'user_id' : user_id,
+                           'deploy'  : DEPLOY
                           }
         path = os.path.join(os.path.dirname(__file__), 'index.html')
 
@@ -324,13 +386,16 @@ class MainPage(Page):
         games = Game.query().fetch()
         index = 1
         for game in games:
-            game.game_link = 'http://localhost:8080/?g=' + game.game_key
+            if DEPLOY:
+                game.game_link = 'http://blackjack-game.appspot.com/?g=' + game.game_key
+            else:
+                game.game_link = 'http://localhost:8080/?g=' + game.game_key
             game.game_number = index
             game.number_of_players = len(game.users)
             if game.number_of_players > 0:
                 index += 1
 
-        template_values = { 'games': games, 'user_id':user_id, 'new_game_id':generateGameKey() }
+        template_values = { 'games': games, 'user_id':user_id, 'new_game_id':generateGameKey(), 'deploy':DEPLOY }
         path = os.path.join(os.path.dirname(__file__), 'menu.html')
 
         self.response.out.write(template.render(path,template_values))  
@@ -349,6 +414,7 @@ application = webapp.WSGIApplication([
     ('/opened', OpenedPage),
     ('/closed', ClosedPage),
     ('/again',  NewGamePage),
+    ('/clear',  ClearPage),
     ('/test',   Test)], debug=True)
 
 
@@ -358,8 +424,3 @@ def main():
 
 if __name__ == "__main__":
   main()
-
-# delete all previous games
-# games = Game.query().fetch()
-# for game in games:
-#     game.key.delete()
