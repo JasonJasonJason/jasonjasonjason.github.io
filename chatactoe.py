@@ -313,8 +313,9 @@ def onGameStateChanged(game):
         ctx.clear_cache()
         time.sleep(5)
             
-        new_game = Game.query(Game.game_key == game.game_key).fetch(1)[0]
-        if new_game: #May have been deleted upon browser closing
+        games = Game.query(Game.game_key == game.game_key).fetch(1)
+        if games and len(games) > 0: #May have been deleted upon browser closing
+            new_game = games[0]
             users = new_game.users
             new_game = resetGame (new_game)
 

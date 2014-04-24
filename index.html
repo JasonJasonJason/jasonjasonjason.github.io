@@ -25,94 +25,93 @@
       <script src="js/game.js"></script>
 
       <script type='text/javascript'>
-        var state = {
-          game_key: '{{ game_key }}',
-          user_id : '{{ user_id }}'
-        };
-        var end_game = false;
 
-        updateGame = function() {
-          //Update displays and logic based on received values from server
-          if(state.game_state == 'end_game'){
-            end_game = true;
-            updateScreen();
-            endUserTurn();
-            setTimeout(showEndGame, 1200, state.end_message, state.me);
-          }
-          if(state.game_state == 'user_turn'){
-            if(end_game){
-              resetStage();
-              resetHands();
-              end_game = false;
-            }
-            updateScreen();
-          }
-        };
+      var end_game = false;
+      var state = {
+        game_key: '{{ game_key }}',
+        user_id : '{{ user_id }}'
+      };
 
-        sendMessage = function(path, opt_param) {
-          path += '?g=' + state.game_key;
-          if (opt_param) {
-            path += '&' + opt_param;
-          }
-          var xhr = new XMLHttpRequest();
-          xhr.open('POST', path, true);
-          xhr.send();
-        };
-
-        onOpened = function() {
-          console.log('onOpened');
-          sendMessage('/opened', 'user_id=' + state.user_id);
-        };
-        
-        onMessage = function(m) {
-          console.log('onMessage!!');
-          newState = JSON.parse(m.data);
-          if(newState.error != null){
-          	showError(newState.error)
-          }
-          else{
-  	        console.log(newState);
-  	        state.dealer          = newState.dealer;
-  	        state.users           = newState.users;
-  	        state.current_user_id = newState.current_user_id;
-  	        state.me              = newState.me;
-  	        state.game_state      = newState.state;
-  	        state.end_message     = newState.end_message;
-  	        updateGame();
-          }
-        }
-        
-        openChannel = function() {
-          var token = '{{ token }}';
-          var channel = new goog.appengine.Channel(token);
-          var handler = {
-            'onopen': onOpened,
-            'onmessage': onMessage,
-            'onerror': function() {},
-            'onclose': function() {}
-          };
-
-          var socket = channel.open(handler);
-          socket.onopen = onOpened;
-          socket.onmessage = onMessage;
-        }
-        
-        initialize = function() {
+      initialize = function() {
           openChannel();
-        }
-        $(function() {
-          setTimeout(initialize, 550);
-          setTimeout(init, 250);
-        });
-        
+      };
 
-		function notifyServerClosedConnection() {
-			sendMessage('/closed', 'user_id=' + state.me.user_id);
-			return null;
-		}
-        $(document).ready(function() { 
-        	window.onbeforeunload = notifyServerClosedConnection;
-		});
+      sendMessage = function(path, opt_param) {
+        path += '?g=' + state.game_key;
+        if (opt_param) {
+          path += '&' + opt_param;
+        }
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', path, true);
+        xhr.send();
+      };
+
+      onOpened = function() {
+        console.log('onOpened');
+        sendMessage('/opened', 'user_id=' + state.user_id);
+      };
+
+      onMessage = function(m) {
+        console.log('onMessage!!');
+        newState = JSON.parse(m.data);
+        if(newState.error != null){
+          showError(newState.error)
+        }
+        else{
+          console.log(newState);
+          state.dealer          = newState.dealer;
+          state.users           = newState.users;
+          state.current_user_id = newState.current_user_id;
+          state.me              = newState.me;
+          state.game_state      = newState.state;
+          state.end_message     = newState.end_message;
+          updateGame();
+        }
+      };
+
+      openChannel = function() {
+        var token = '{{ token }}';
+        var channel = new goog.appengine.Channel(token);
+        var handler = {
+          'onopen': onOpened,
+          'onmessage': onMessage,
+          'onerror': function() {},
+          'onclose': function() {}
+        };
+
+        var socket = channel.open(handler);
+        socket.onopen = onOpened;
+        socket.onmessage = onMessage;
+      };
+
+      notifyServerClosedConnection = function() {
+          sendMessage('/closed', 'user_id=' + state.me.user_id);
+          return null;
+      };
+
+      var updateGame = function() {
+        //Update displays and logic based on received values from server
+        if(state.game_state == 'end_game'){
+          end_game = true;
+          updateScreen();
+          endUserTurn();
+          setTimeout(showEndGame, 1200, state.end_message, state.me);
+        }
+        if(state.game_state == 'user_turn'){
+          if(end_game){
+            resetStage();
+            resetHands();
+            end_game = false;
+          }
+          updateScreen();
+        }
+      };
+        
+      $(function() {
+        window.onbeforeunload = notifyServerClosedConnection;
+        setTimeout(initialize, 550);
+        setTimeout(init, 250);
+      });
 
       var circle = new createjs.Shape();
       var stage;
@@ -129,7 +128,6 @@
       var deckX = 965;
       var deckY = 80;
       var takingInput = true;
-      var user = null;
       var chipButtons = new Array();
       var namedSprites = {};
       var infoBlock;
@@ -283,9 +281,6 @@
         createjs.Ticker.setFPS(30);
         createjs.Ticker.addEventListener("tick", stage);
 
-        user = new Player();
-        user.setOnCashChangedCallback(onUserCashChanged);
-        user.onBetChanged(onUserBetChanged);
       }
 
       var nextTurn = function(){
@@ -331,10 +326,6 @@
         userHand          = newUserHand;
         dealerCards       = dealerHand.getHand();
         userCards         = userHand.getHand();
-
-        if(!user)
-        	user = new Player();
-        user.setHand(userHand);
 
         animationDelay = 0;
 
@@ -733,18 +724,6 @@
         createjs.Tween.get(buttonSprite).to({alpha:0.6},350, createjs.Ease.quadOut);
         buttonSprite.enabled = false;
       }
-
-      var onUserCashChanged = function(event){
-        currentMoneyText.set({
-          text: ('Bank: $'+user.getCash())
-        });
-      }
-      var onUserBetChanged = function(event){
-        currentBetText.set({
-          text: ('Bet: $'+user.getCurrentBet())
-        });
-      }
-
       
       var onMainMenuButtonClicked = function(event){
         window.location = "http://casino.curtiswendel.me/gamefloor.php";
